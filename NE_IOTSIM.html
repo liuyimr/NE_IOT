@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   NE_IOTSIM —— 新易物联网沙盘（单文件离线版）
-  版本：v1.2 (配置抽屉版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
+  版本：v1.3 (触摸交互修复版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
   Copyright (c) 2026 新易科技工作室 NewE
   作者：Liuyi  <yimr@sohu.com>
   协议：MIT License
@@ -2731,7 +2731,6 @@ const notesEl = document.getElementById('notes');
 let pendingWire = null, drag = null, pan = null, selWire = null, selNote = null;
 let wireDrag = null, hoverWire = null;
 /* 触摸：双指捏合缩放。touch-action:none 禁掉了浏览器原生手势，必须自己接管 */
-const activePointers = new Map();
 let pinch = null;
 
 /* 连线悬停提示：显示两端设备/端口、电气类型与可用操作 */
@@ -2968,69 +2967,88 @@ function updateHUD() {
   document.getElementById('empty').style.display = S.devices.length ? 'none' : 'flex';
 }
 
-/* ---------- 指针交互 ---------- */
-stageInner.addEventListener('pointerdown', e => {
-  if (e.pointerType === 'touch') {
-    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (activePointers.size >= 2) {
-      drag = null; pan = null; wireDrag = null; pendingWire = null; hideWireTip();
-      const pts = Array.from(activePointers.values()).slice(0, 2);
-      const r = stage.getBoundingClientRect();
-      const cx = (pts[0].x + pts[1].x) / 2 - r.left, cy = (pts[0].y + pts[1].y) / 2 - r.top;
-      pinch = {
-        dist: Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)),
-        k: S.view.k,
-        wx: (cx - S.view.x) / S.view.k,
-        wy: (cy - S.view.y) / S.view.k
-      };
-      e.preventDefault(); return;
-    }
-  }
+/* ---------- 指针交互：统一状态机 ----------
+ * 所有触摸指针都记录在 pointers 里；gesture 描述当前手势。
+ * 关键：pointercancel / lostpointercapture 必须彻底复位，否则画布会"卡住"。
+ */
+const pointers = new Map();          // pointerId -> { x, y, type }
+let gesture = null;                  // { type:'pinch'|'pan'|'card'|'note'|'wire', pid, ... }
+let lastTap = null;                  // 手机双击：{ id, t }
+
+function resetGesture() {
+  gesture = null; drag = null; pan = null; wireDrag = null; pinch = null;
+  document.querySelectorAll('.rewire-ok,.port.sel,.gp-sub.sel').forEach(el => el.classList.remove('rewire-ok', 'sel'));
+  hideWireTip();
+}
+function startPinch() {
+  const pts = Array.from(pointers.values()).slice(0, 2);
+  if (pts.length < 2) return;
+  const r = stage.getBoundingClientRect();
+  const cx = (pts[0].x + pts[1].x) / 2 - r.left, cy = (pts[0].y + pts[1].y) / 2 - r.top;
+  drag = null; pan = null; wireDrag = null; pendingWire = null;
+  pinch = {
+    dist: Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)),
+    k: S.view.k,
+    wx: (cx - S.view.x) / S.view.k,
+    wy: (cy - S.view.y) / S.view.k
+  };
+  gesture = { type: 'pinch' };
+  hideWireTip();
+}
+
+stage.addEventListener('pointerdown', e => {
+  /* 只排除明确的 UI 控件；缩放条 / HUD / 提示卡不参与手势，其余都算画布 */
+  const t = e.target;
+  if (t.closest && (t.closest('#zoomBar') || t.closest('.hud') || t.closest('#wireTip') ||
+      t.closest('.cfg-drawer') || t.closest('.term'))) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+  try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+
+  /* 第二根手指落下 → 捏合；无论第一根按在卡片还是空白处都要接管 */
+  if (e.pointerType === 'touch' && pointers.size >= 2) { startPinch(); return; }
+  if (gesture) return;
+
   const subEl = e.target.closest('.gp-sub');
   const portEl = e.target.closest('.port');
   const cardEl = e.target.closest('.card');
   const noteEl = e.target.closest('.note');
   const wireX = e.target.closest('.wire-x');
   const wireG = e.target.closest('.wire-g');
-  if (wireX) {
-    e.stopPropagation();
-    deleteWire(wireG.dataset.w); return;
-  }
+  const pid = e.pointerId;
+
+  if (wireX) { e.stopPropagation(); deleteWire(wireG.dataset.w); return; }
   if (wireG) {
-    e.stopPropagation(); e.preventDefault();
-    const w = S.wires.find(x => x.id === wireG.dataset.w);
-    if (!w) return;
+    e.stopPropagation();
+    const w = S.wires.find(x => x.id === wireG.dataset.w); if (!w) return;
     const p1 = portCenter(byId(w.a.d), w.a.p), p2 = portCenter(byId(w.b.d), w.b.p);
-    const d1 = p1 ? Math.hypot(e.clientX - (p1.x * S.view.k + stage.getBoundingClientRect().left + S.view.x),
-                               e.clientY - (p1.y * S.view.k + stage.getBoundingClientRect().top + S.view.y)) : Infinity;
-    const d2 = p2 ? Math.hypot(e.clientX - (p2.x * S.view.k + stage.getBoundingClientRect().left + S.view.x),
-                               e.clientY - (p2.y * S.view.k + stage.getBoundingClientRect().top + S.view.y)) : Infinity;
-    const moveEnd = d1 <= d2 ? 'a' : 'b';
-    const fixedEnd = moveEnd === 'a' ? 'b' : 'a';
-    const fd = byId(w[fixedEnd].d), fp = portCenter(fd, w[fixedEnd].p);
+    const r = stage.getBoundingClientRect();
+    const d1 = p1 ? Math.hypot(e.clientX - (p1.x * S.view.k + r.left + S.view.x),
+                               e.clientY - (p1.y * S.view.k + r.top + S.view.y)) : Infinity;
+    const d2 = p2 ? Math.hypot(e.clientX - (p2.x * S.view.k + r.left + S.view.x),
+                               e.clientY - (p2.y * S.view.k + r.top + S.view.y)) : Infinity;
+    const moveEnd = d1 <= d2 ? 'a' : 'b', fixedEnd = moveEnd === 'a' ? 'b' : 'a';
+    const fp = portCenter(byId(w[fixedEnd].d), w[fixedEnd].p);
     wireDrag = { id: w.id, sx: e.clientX, sy: e.clientY, moved: false, active: false,
       moveEnd, fixedEnd, fixed: { d: w[fixedEnd].d, p: w[fixedEnd].p },
       anchorFixed: fp || { x: 0, y: 0 }, mx: 0, my: 0 };
+    gesture = { type: 'wire', pid };
     return;
   }
   if (portEl && cardEl) {
-    e.stopPropagation(); e.preventDefault();
+    e.stopPropagation();
     const hit = { d: cardEl.dataset.id, p: subEl ? subEl.dataset.p : portEl.dataset.p };
     const mark = subEl || portEl;
     if (!pendingWire) { pendingWire = hit; mark.classList.add('sel'); return; }
-    if (pendingWire.d === hit.d && pendingWire.p === hit.p) {
-      pendingWire = null; renderAll(); return;
-    }
-    const t1 = portType(byId(pendingWire.d), pendingWire.p);
-    const t2 = portType(byId(hit.d), hit.p);
+    if (pendingWire.d === hit.d && pendingWire.p === hit.p) { pendingWire = null; renderAll(); return; }
+    const t1 = portType(byId(pendingWire.d), pendingWire.p), t2 = portType(byId(hit.d), hit.p);
     if (!compatible(t1, t2)) {
       toast('端口不匹配：' + (PORT_LABEL[t1] || t1) + ' 不能接 ' + (PORT_LABEL[t2] || t2) + '（' +
         (t1 === 'p24' || t2 === 'p24' ? '24V+ 只能接设备的 24V 电源输入' : '见左侧端口接线图') + '）');
       pendingWire = null; renderAll(); return;
     }
-    for (const e of [pendingWire, hit]) {
-      if (!MULTI_PORT[portType(byId(e.d), e.p)] && otherEnd(e.d, e.p)) {
-        toast('端口 ' + e.p + ' 已被占用，请先删除原来的连线');
+    for (const p of [pendingWire, hit]) {
+      if (!MULTI_PORT[portType(byId(p.d), p.p)] && otherEnd(p.d, p.p)) {
+        toast('端口 ' + p.p + ' 已被占用，请先删除原来的连线');
         pendingWire = null; renderAll(); return;
       }
     }
@@ -3038,42 +3056,55 @@ stageInner.addEventListener('pointerdown', e => {
       (w.a.d === pendingWire.d && w.a.p === pendingWire.p && w.b.d === hit.d && w.b.p === hit.p) ||
       (w.b.d === pendingWire.d && w.b.p === pendingWire.p && w.a.d === hit.d && w.a.p === hit.p));
     if (!dup) S.wires.push({ id: uid('w'), a: pendingWire, b: hit });
-    updateAnalogChannels(false);
-    pendingWire = null; renderAll(); save(); return;
+    updateAnalogChannels(false); pendingWire = null; renderAll(); save(); return;
   }
   if (noteEl) {
     e.stopPropagation();
     selNote = noteEl.dataset.id;
-    const n = S.notes.find(x => x.id === selNote);
+    const n = S.notes.find(x => x.id === selNote); if (!n) return;
     drag = { kind: 'note', id: selNote, sx: e.clientX, sy: e.clientY, ox: n.x, oy: n.y };
-    renderNotes(); return;
+    gesture = { type: 'note', pid }; renderNotes(); return;
   }
   if (cardEl) {
-    if (e.target.closest('.x')) return;
-    const d = byId(cardEl.dataset.id);
+    /* 齿轮与 × 是按钮，绝不 preventDefault —— 否则手机上 click 不触发 */
+    if (e.target.closest('.x') || e.target.closest('.gear')) return;
+    const d = byId(cardEl.dataset.id); if (!d) return;
     S.activeDev = d.id;
     document.querySelectorAll('.card').forEach(c => c.classList.toggle('sel', c === cardEl));
     drag = { kind: 'card', id: d.id, sx: e.clientX, sy: e.clientY, ox: d.x, oy: d.y };
-    e.preventDefault(); return;
+    gesture = { type: 'card', pid, id: d.id, sx: e.clientX, sy: e.clientY };
+    return;
   }
-  e.preventDefault();
+  /* 空白：平移。只清选中态，不 renderAll（重建 DOM 会让指针捕获失效） */
   selWire = null; selNote = null;
+  document.querySelectorAll('.card.sel').forEach(c => c.classList.remove('sel'));
   pan = { sx: e.clientX, sy: e.clientY, ox: S.view.x, oy: S.view.y };
-  renderAll();
+  gesture = { type: 'pan', pid };
 });
 
-window.addEventListener('pointermove', e => {
-  if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pinch && activePointers.size >= 2) {
-    const pts = Array.from(activePointers.values()).slice(0, 2);
+stage.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)) {
+    /* 鼠标未按下时仍显示连线悬停提示 */
+    if (e.pointerType === 'mouse' && hoverWire && !gesture) {
+      const w = S.wires.find(x => x.id === hoverWire); if (w) showWireTip(w, e);
+    }
+    return;
+  }
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+
+  if (gesture && gesture.type === 'pinch') {
+    if (pointers.size < 2) return;
+    const pts = Array.from(pointers.values()).slice(0, 2);
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
     const r = stage.getBoundingClientRect();
     const cx = (pts[0].x + pts[1].x) / 2 - r.left, cy = (pts[0].y + pts[1].y) / 2 - r.top;
     const k = Math.max(.4, Math.min(2.2, pinch.k * dist / pinch.dist));
     S.view.k = k; S.view.x = cx - pinch.wx * k; S.view.y = cy - pinch.wy * k;
-    applyView(); e.preventDefault(); return;
+    applyView(); return;
   }
-  if (wireDrag) {
+  if (!gesture || gesture.pid !== e.pointerId) return;
+
+  if (gesture.type === 'wire' && wireDrag) {
     const dist = Math.hypot(e.clientX - wireDrag.sx, e.clientY - wireDrag.sy);
     if (!wireDrag.active && dist > 5) wireDrag.active = true;
     if (wireDrag.active) {
@@ -3085,18 +3116,17 @@ window.addEventListener('pointermove', e => {
       document.querySelectorAll('.port,.gp-sub').forEach(el => {
         const card = el.closest('.card'); if (!card) return;
         const pt = portType(byId(card.dataset.id), el.dataset.p);
-        el.classList.toggle('rewire-ok', !!compatible(t, pt) && !(card.dataset.id === wireDrag.fixed.d && el.dataset.p === wireDrag.fixed.p));
+        el.classList.toggle('rewire-ok', !!compatible(t, pt) &&
+          !(card.dataset.id === wireDrag.fixed.d && el.dataset.p === wireDrag.fixed.p));
       });
       drawWires();
     }
     return;
   }
-  if (!drag && !pan) return;
   if (drag) {
     const dx = (e.clientX - drag.sx) / S.view.k, dy = (e.clientY - drag.sy) / S.view.k;
     if (drag.kind === 'card') {
-      const d = byId(drag.id);
-      if (!d) return;
+      const d = byId(drag.id); if (!d) return;
       d.x = Math.round(drag.ox + dx); d.y = Math.round(drag.oy + dy);
       const el = cardsEl.querySelector('.card[data-id="' + d.id + '"]');
       if (el) { el.style.left = d.x + 'px'; el.style.top = d.y + 'px'; }
@@ -3115,13 +3145,28 @@ window.addEventListener('pointermove', e => {
     applyView();
   }
 });
-window.addEventListener('pointercancel', e => {
-  activePointers.delete(e.pointerId);
-  if (pinch && activePointers.size < 2) pinch = null;
-});
-window.addEventListener('pointerup', e => {
-  activePointers.delete(e.pointerId);
-  if (pinch) { if (activePointers.size < 2) { pinch = null; save(); } return; }
+
+stage.addEventListener('pointerup', e => {
+  if (!pointers.has(e.pointerId)) return;
+  const g = gesture;
+  pointers.delete(e.pointerId);
+
+  if (g && g.type === 'pinch') {
+    if (pointers.size < 2) { pinch = null; gesture = null; save(); }
+    return;
+  }
+  if (!g || g.pid !== e.pointerId) return;
+
+  /* 手机双击：两次轻点同一张卡（350ms 内、位移 <10px）打开配置抽屉 */
+  if (e.pointerType === 'touch' && g.type === 'card' &&
+      Math.hypot(e.clientX - g.sx, e.clientY - g.sy) < 10) {
+    const now = Date.now();
+    if (lastTap && lastTap.id === g.id && now - lastTap.t < 350) {
+      lastTap = { id: g.id, t: now, used: true };
+      if (typeof openConfig === 'function') openConfig(byId(g.id));
+    } else lastTap = { id: g.id, t: now, used: false };
+  }
+
   if (wireDrag) {
     const wd = wireDrag; wireDrag = null;
     document.querySelectorAll('.rewire-ok').forEach(el => el.classList.remove('rewire-ok'));
@@ -3141,11 +3186,21 @@ window.addEventListener('pointerup', e => {
         }
       } else drawWires();
     } else { selWire = wd.id; drawWires(); }
-    return;
   }
   if (drag) { save(); drag = null; }
-  pan = null;
+  pan = null; gesture = null;
 });
+
+/* 系统手势中断 / 指针捕获丢失：必须全部复位，否则后续手势卡死 */
+stage.addEventListener('pointercancel', e => {
+  pointers.delete(e.pointerId);
+  resetGesture();
+});
+stage.addEventListener('lostpointercapture', e => {
+  pointers.delete(e.pointerId);
+  if (!pointers.size) resetGesture();
+});
+window.addEventListener('blur', () => { pointers.clear(); resetGesture(); });
 
 /* 连线悬停提示 + 右键删除 */
 stage.addEventListener('pointerover', e => {
@@ -3155,7 +3210,7 @@ stage.addEventListener('pointerover', e => {
   if (w) { hoverWire = w.id; showWireTip(w, e); }
 });
 stage.addEventListener('pointermove', e => {
-  if (hoverWire && !wireDrag && !drag && !pan) {
+  if (hoverWire && !wireDrag && !drag && !pan && !gesture) {
     const w = S.wires.find(x => x.id === hoverWire);
     if (w) showWireTip(w, e);
   }
@@ -3172,6 +3227,8 @@ stage.addEventListener('contextmenu', e => {
 cardsEl.addEventListener('dblclick', e => {
   const card = e.target.closest('.card');
   if (!card) return;
+  /* 手机 tap 双击已处理；避免某些浏览器同时派发 dblclick 造成重复开关 */
+  if (lastTap && lastTap.used && Date.now() - lastTap.t < 600) return;
   S.activeDev = card.dataset.id;
   const d = byId(S.activeDev);
   if (d && (d.type === 'dash' || d.type === 'hmi')) {
@@ -3469,7 +3526,6 @@ function runCmd(line) {
     injectPacket(a[1] || 'rtu', a.slice(2).join(' '), d.name); return;
   }
   if (cmd === 'config' && typeof openConfig === 'function') { openConfig(d); return; }
-  if (cmd === 'pagerefresh') { renderPackets(); return; }
 
   if (cmd === 'show' && a[1] === 'wiring') {
     termPrint('端口接线表（● 已接 / ○ 未接）：', 'hl');
@@ -3707,7 +3763,8 @@ function updatePacketsLive() {
   if (pktFilter !== pktShownFilter || ps.length < pktShown) { renderPackets(); return; }
   if (ps.length === pktShown) return;
   const tmp = document.createElement('div');
-  tmp.innerHTML = ps.slice(pktShown).reverse().map(pktRow).join('');
+  /* ps.slice(pktShown) 是按时间正序的新报文；逐个插到队首后，最新的自然在最上面 */
+  tmp.innerHTML = ps.slice(pktShown).map(pktRow).join('');
   while (tmp.firstChild) list.insertBefore(tmp.firstChild, list.firstChild);
   pktShown = ps.length;
 }
@@ -3740,7 +3797,7 @@ document.getElementById('pktDetail').addEventListener('click', e => {
   S.hlByte = Number(el.dataset.i); renderPktDetail();
 });
 document.getElementById('pktFilter').addEventListener('change', e => { pktFilter = e.target.value; renderPackets(); });
-document.getElementById('pktClear').onclick = () => { S.packets = []; S.activePkt = null; renderPackets(); renderPktDetail(); };
+/* pktClear 由 bindUI 统一绑定 */
 
 /* ---------------- 数据看板 ---------------- */
 function sensorDevices() { return seriesList(); }
@@ -3857,7 +3914,7 @@ function toggleCfgMin() {
   if (!el.classList.contains('min')) renderConfig();
 }
 function renderCfgMini(d) {
-  const el = document.getElementById('cfgMini'); if (!el) return;
+  const el = document.getElementById('cfgMini'); if (!el || !d) return;
   const v = typeof devValue === 'function' ? devValue(d) : { txt: '' };
   const st = d.state || {};
   const last = (S.packets || []).slice().reverse().find(p => p.srcId === d.id || p.dstId === d.id);
@@ -4057,11 +4114,11 @@ function renderConfig() {
   const title = document.getElementById('cfgTitle');
   const badge = document.getElementById('cfgBadge');
   if (!body) return;
-  renderCfgMini(d);
   if (!d) {
     title.textContent = '设备参数'; badge.textContent = '请先选中设备';
     body.innerHTML = '<div class="wk-empty">点画布上的设备开始编辑。</div>'; return;
   }
+  renderCfgMini(d);
   title.textContent = d.name;
   badge.textContent = DEFS[d.type].name + ' · ' + (DEFS[d.type].role || '设备');
   cfgScroll = body.scrollTop;
@@ -4091,7 +4148,10 @@ function bindCfgEvents(d) {
       const key = el.dataset.tbl, i = Number(el.dataset.i), col = el.dataset.col;
       const arr = cfgRows(d, key);
       if (arr && arr[i]) {
-        arr[i][col] = /^(val|th|scale|qos|every|reg|slave|ro)$/.test(col) ? Number(el.value) : el.value;
+        if (/^(val|th|scale|qos|every|reg|slave|ro)$/.test(col)) {
+          const n = Number(el.value);
+          arr[i][col] = Number.isFinite(n) ? n : 0;
+        } else arr[i][col] = el.value;
         applyCfgChange(d);
       }
     };
@@ -4266,7 +4326,21 @@ function refreshPageWidgets() {
 function bindPageProp() {
   const w = pageEdit.page.widgets[pageEdit.sel];
   if (!w || pageEdit.preview) return;
-  const bind = (id, fn) => { const el = document.getElementById(id); if (el) el.oninput = e => { fn(e.target.value); refreshPageWidgets(); }; };
+  /* 文本输入只重绘画布，不重建右侧属性面板 —— 否则输入一个字符就失焦 */
+  const bind = (id, fn) => {
+    const el = document.getElementById(id); if (!el) return;
+    el.oninput = e => {
+      fn(e.target.value);
+      const cv = document.getElementById('pgCanvas');
+      if (cv) {
+        const ws = pageEdit.page.widgets;
+        cv.innerHTML = ws.length ? ws.map(pgWidgetHTML).join('') :
+          '<div class="pg-blank">组件为空 —— 从左侧点选组件加入页面</div>';
+        drawPageCharts();
+      }
+      save();
+    };
+  };
   bind('pTitle', v => w.title = v);
   bind('pUnit', v => w.unit = v);
   bind('pDigits', v => w.digits = Number(v));
@@ -4665,6 +4739,7 @@ function mqttSub(c, topic, qos) {
   logMQTT('TX', c, b, fr, { note: '主题过滤器支持单层 + 与多层 #。' });
   const ack = mqttFrame(9, { topic, qos });
   logMQTT('RX', b, c, ack, { note: 'Broker 授予 QoS ' + qos + '。' });
+  cs.subs = cs.subs.filter(s => s.topic !== topic);   /* 同一主题重复订阅只保留最后一次 */
   cs.subs.push({ topic, qos });
   if (bs.clients[c.id]) bs.clients[c.id].subs = cs.subs.slice();
   bs.subs = bs.subs.filter(s => !(s.dev === c.id && s.topic === topic));
@@ -5583,7 +5658,7 @@ function coapFrame(code, mid, path, payload, o) {
     f('Code', pad2(code), COAP_CODE[code] || ('0x' + pad2(code)), '3b 类别 + 5b 细节，如 1=GET、69=2.05 Content'),
     f('Message ID', pad2(mid >> 8) + ' ' + pad2(mid & 255), mid, '请求与应答配对')
   ];
-  if (segs.length) fs.push(f('Uri-Path 选项', opts.slice(0, 1 + segs.reduce((a, s) => a + asciiHex(s).split(' ').length, 0)).map(pad2).join(' '),
+  if (segs.length) fs.push(f('Uri-Path 选项', opts.map(pad2).join(' '),
     '/' + segs.join('/'), 'delta=11 的 Uri-Path 选项，每段一个'));
   if (pb.length) fs.push(f('载荷', pb.map(pad2).join(' '), payload, '0xFF 为载荷标志，之后是 UTF-8 内容'));
   return { bytes, fields: fs, desc: (COAP_CODE[code] || 'CoAP') + ' ' + path + (payload != null && payload !== '' ? ' = ' + payload : '') };
@@ -6476,14 +6551,14 @@ function updateLabTag() {
 
 /* ---------------- 持久化 ---------------- */
 function projectText() {
-  const lines = ['@project NE_IOTSIM v1.2'];
+  const lines = ['@project NE_IOTSIM v1.3'];
   for (const d of S.devices) lines.push(['D', d.id, d.type, d.name, d.x, d.y,
     JSON.stringify(d.cfg), JSON.stringify(d.regs), JSON.stringify(d.coils)].join('|'));
   for (const w of S.wires) lines.push(['W', w.id, w.a.d, w.a.p, w.b.d, w.b.p].join('|'));
   for (const n of S.notes) lines.push(['N', n.id, n.x, n.y, n.text].join('|'));
   lines.push('@end');
   lines.push(JSON.stringify({
-    app: 'NE_IOTSIM', ver: '1.2.0', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
+    app: 'NE_IOTSIM', ver: '1.3.0', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
     lab: S.lab, labName: S.labName, view: S.view
   }));
   return lines.join('\n');
@@ -6494,8 +6569,11 @@ function parseProject(text) {
   if (at >= 0) { try { obj = JSON.parse(text.slice(at + 1)); } catch (e) {} }
   if (!obj) { try { obj = JSON.parse(text); } catch (e) { throw new Error('文件格式无法识别'); } }
   if (!obj.devices || !Array.isArray(obj.devices)) throw new Error('缺少设备段');
-  S.devices = obj.devices.map(d => Object.assign({ id: uid('d'), x: 100, y: 100, cfg: {}, regs: {}, coils: {}, state: {}, history: [] }, d));
-  S.wires = (obj.wires || []).filter(w => byId(w.a.d) && byId(w.b.d));
+  const known = obj.devices.filter(d => d && d.type && DEFS[d.type]);
+  const unknown = obj.devices.length - known.length;
+  S.devices = known.map(d => Object.assign({ id: uid('d'), x: 100, y: 100, cfg: {}, regs: {}, coils: {}, state: {}, history: [] }, d));
+  if (unknown) toast(unknown + ' 台未知型号设备已跳过');
+  S.wires = (obj.wires || []).filter(w => w.a && w.b && byId(w.a.d) && byId(w.b.d));
   S.notes = obj.notes || [];
   S.view = obj.view || { x: 0, y: 0, k: 1 };
   S.lab = obj.lab || ''; S.labName = obj.labName || '';
@@ -6581,7 +6659,7 @@ function showAbout() {
   openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
     '<h2>关于</h2><button class="btn" id="modalClose">关闭</button></div><div class="mb about">' +
     '<svg class="about-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
-    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.2 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
+    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.3 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
     '<p>单文件、零安装、完全离线的物联网教学仿真器。独立项目，不与其他沙盘互通，也不联网、不采集真实数据。</p>' +
     '<p>当前版本：Modbus RTU/TCP、MQTT 3.1.1、OPC UA、LoRaWAN、NB-IoT 链路、CoAP、BACnet/IP、Modbus→MQTT 网关转换、十六进制报文手工注入；标准信号与模拟量输出、规则引擎、可视化页面编辑与独立 HTML 导出；23 个实验。</p>' +
     '<p class="hint">教学模拟器，不是真实协议栈。不联网、不采集数据。Copyright © 2026 新易科技工作室 NewE · MIT License</p>' +
@@ -6633,7 +6711,10 @@ function renderSys() {
   document.getElementById('sysZoomOut').onclick = () => { S.view.k = Math.max(.4, S.view.k / 1.15); applyView(); };
   document.getElementById('sysZoomFit').onclick = () => { S.view = { x: 0, y: 0, k: 1 }; applyView(); };
   document.getElementById('sysRun').onclick = () => { S.sim.running = !S.sim.running; syncClock(); renderSys(); };
-  document.getElementById('sysStep').onclick = () => { S.sim.t += 1000; tickSim(1000); syncClock(); toast('仿真时钟 +1s'); };
+  document.getElementById('sysStep').onclick = () => {
+    /* tickSim 内部会按速度推进 sim.t，这里只补 1 秒的仿真时间 */
+    tickSim(1000 / (S.sim.speed || 1)); syncClock(); toast('仿真时钟 +1s');
+  };
   document.getElementById('sysClearPkts').onclick = () => {
     S.packets = []; S.activePkt = null; renderPackets(); renderPktDetail(); toast('报文已清空');
   };
@@ -6730,7 +6811,7 @@ function init() {
   syncClock(); bindUI(); termOpen(false);
   if (!restored) setTimeout(() => {
     openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
-      '<h2>新易物联网沙盘 v1.0</h2><button class="btn" id="modalClose">开始</button></div><div class="mb">' +
+      '<h2>新易物联网沙盘 v1.3</h2><button class="btn" id="modalClose">开始</button></div><div class="mb">' +
       '<p>已为你加载「Modbus RTU 读温湿度」实验拓扑。三步走：</p><ol>' +
       '<li>点顶栏「运行」启动仿真时钟；</li>' +
       '<li>双击画布上的 <b>Master-01</b>，输入 <code>poll 1 40001 2</code>；</li>' +
