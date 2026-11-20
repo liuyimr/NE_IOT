@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://liuyimr.github.io/NE_IOT/"><img src="https://img.shields.io/badge/在线演示-GitHub%20Pages-2f81f7?style=flat-square" alt="Live Demo"></a>
-  <a href="https://github.com/liuyimr/NE_IOT/releases"><img src="https://img.shields.io/badge/版本-v1.1-green?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/liuyimr/NE_IOT/releases"><img src="https://img.shields.io/badge/版本-v1.2-green?style=flat-square" alt="Version"></a>
   <img src="https://img.shields.io/badge/单文件-离线可用-orange?style=flat-square" alt="Single File">
   <img src="https://img.shields.io/badge/协议-10%20种-blueviolet?style=flat-square" alt="Protocols">
   <img src="https://img.shields.io/badge/实验-23%20个-blue?style=flat-square" alt="Labs">
@@ -42,7 +42,7 @@
 | **23 个实训实验** | 从接线到排错，含预置故障：断线、波特率不匹配、Topic 写错、占空比超限 |
 | **故障注入与手工报文注入** | `crc bad on` / `fault break` / `drop`，或直接构造十六进制帧看解析变化 |
 | **可视化页面编辑器** | 数值卡 / 仪表 / 曲线 / 状态灯，绑定任意数据系列，一键导出独立 HTML 看板 |
-| **每设备参数面板** | 双击设备直接改量程 / 幅度 / 周期 / 地址 / Topic，规则表、映射表可视化增删，与命令双向同步 |
+| **非模态配置抽屉** | 双击设备或点 ⚙ 打开，桌面右侧 / 手机半屏；改参数时画布与报文仍可见 |
 | **连线三点交互** | 悬停看两端设备端口，单击选中，拖动改接，右键 / × / Del 删除 |
 | **手机 / 平板可用** | 横向设备库、手势缩放、响应式工作台，课堂上用手机也能演示 |
 | **类 VRP 命令行** | 简洁命令，`help` 随时查，Tab 自动补全 |

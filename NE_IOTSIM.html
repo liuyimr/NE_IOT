@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   NE_IOTSIM —— 新易物联网沙盘（单文件离线版）
-  版本：v1.1 (交互增强版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
+  版本：v1.2 (配置抽屉版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
   Copyright (c) 2026 新易科技工作室 NewE
   作者：Liuyi  <yimr@sohu.com>
   协议：MIT License
@@ -1288,6 +1288,14 @@ html[data-theme="light"] .card .port .lab{color:#111;text-shadow:none}
 
 /* ---- 连线：选中保色不消失、悬停信息卡、拖动改接 ---- */
 .card .head{border-radius:7px 7px 0 0}
+/* 每张卡的配置齿轮按钮 */
+.card .head{padding-right:4px}
+.card .head .tag + .gear,.card .head .gear + .x{margin-left:0}
+.card .head .gear{
+  margin-left:auto;color:var(--tx3);font-size:13px;line-height:1;
+  padding:2px 4px;border-radius:4px;
+}
+.card .head .gear:hover{color:var(--cy);background:rgba(47,129,247,.12)}
 .wire-g.sel .wire{
   stroke-width:3.5;opacity:1;stroke-dasharray:none;
   filter:drop-shadow(0 0 5px rgba(47,129,247,.75));
@@ -1557,7 +1565,45 @@ code{font-family:var(--mono);background:var(--bg3);border:1px solid var(--line);
 .modal.page-modal.previewing .pg-tools{display:none}
 .modal.page-modal.previewing .pg-widget{cursor:default}
 
-/* ---- 设备参数面板 ---- */
+/* ---- 设备配置抽屉：非模态，画布/工作台保持可交互 ---- */
+.cfg-drawer{
+  position:fixed;top:0;right:0;bottom:0;width:420px;z-index:60;
+  display:flex;flex-direction:column;background:var(--bg2);
+  border-left:1px solid var(--line);box-shadow:-10px 0 32px rgba(0,0,0,.34);
+  transform:translateX(105%);transition:transform .22s ease;
+}
+.cfg-drawer.open{transform:translateX(0)}
+.cfg-drawer.min{width:220px}
+.cfg-drawer.min .cfg-wrap{display:none}
+.cfg-drawer-h{
+  display:flex;align-items:center;gap:8px;padding:10px 12px;
+  border-bottom:1px solid var(--line);background:var(--bg3);min-height:44px;
+}
+.cfg-dtitle{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.cfg-dtitle b{font-size:13px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cfg-dtitle span{font-size:10px;color:var(--tx3)}
+.cfg-dmin,.cfg-dclose{
+  width:26px;height:26px;flex:0 0 26px;border-radius:6px;border:1px solid var(--line);
+  background:transparent;color:var(--tx2);font-size:16px;line-height:1;cursor:pointer;
+}
+.cfg-dmin:hover{background:var(--bg3);color:var(--tx)}
+.cfg-dclose:hover{color:var(--rd);border-color:var(--rd)}
+.cfg-mini{
+  display:flex;align-items:center;gap:10px;padding:8px 12px;
+  background:rgba(47,129,247,.08);border-bottom:1px solid var(--line);font-size:11px;min-height:38px;
+}
+.cfg-mini .mini-v{font-size:15px;font-weight:600;color:var(--cy);font-family:var(--mono)}
+.cfg-mini .mini-l{color:var(--tx3)}
+.cfg-mini .mini-s{margin-left:auto;color:var(--tx3);font-size:10px}
+.cfg-drawer-f{
+  display:flex;gap:7px;padding:10px 12px;border-top:1px solid var(--line);background:var(--bg3);
+}
+.cfg-drawer-f .btn{flex:1;padding:6px 4px;font-size:11px}
+html[data-theme="light"] .cfg-drawer{background:#fff}
+html[data-theme="light"] .cfg-drawer-h,
+html[data-theme="light"] .cfg-drawer-f{background:#f6f8fa}
+
+/* ---- 设备参数面板（抽屉内） ---- */
 .cfg-wrap{flex:1;min-height:0;overflow-y:auto;padding:12px 14px 18px;display:flex;flex-direction:column;gap:14px}
 .cfg-group{border:1px solid var(--line);border-radius:9px;background:var(--bg2);padding:11px 13px 13px}
 .cfg-group h4{
@@ -1666,6 +1712,15 @@ html[data-theme="light"] .palg-h:hover{background:rgba(47,129,247,.08)}
   .wk-bar input[type="text"]{width:120px}
   .clock .clk-t{display:none}
   .term.open{height:52vh}
+  .cfg-drawer{width:100%;top:46vh;box-shadow:none;border-left:0;border-top:1px solid var(--line);border-radius:14px 14px 0 0;overflow:hidden}
+  .cfg-drawer::before{
+    content:'';position:absolute;top:5px;left:50%;transform:translateX(-50%);
+    width:34px;height:4px;border-radius:2px;background:var(--line);z-index:1;
+  }
+  .cfg-drawer-h{padding-top:12px}
+  .cfg-drawer.min{width:100%;top:auto;height:58px}
+  .cfg-drawer.min .cfg-mini{border-bottom:0}
+  .cfg-drawer.min .cfg-drawer-f{display:none}
 }
 
 </style>
@@ -1724,7 +1779,7 @@ html[data-theme="light"] .palg-h:hover{background:rgba(47,129,247,.08)}
           <p><b style="color:#f85149">红＝+24V</b>，灰＝GND，<b style="color:#e3b341">黄褐＝4–20mA</b>，<b style="color:#79b8ff">蓝＝0–10V</b>，黄＝RS485，绿＝以太网。</p>
           <p>24V+ → 变送器「+」；变送器「-」→ AI+；AI- → GND。类型不匹配会拒绝连线。</p>
           <p>RS485 已合并为一个「485」端口，框内 <b>A / B</b> 小框分别接线；点两个兼容端口连。</p>
-          <p><b>双击</b>设备打开「设备参数」面板；看板 / 可视化终端双击＝<b>页面编辑器</b>。</p>
+          <p><b>双击</b>设备或点卡片 ⚙ 打开右侧<b>配置抽屉</b>；看板 / 可视化终端双击＝<b>页面编辑器</b>。</p>
           <p>连线：悬停看两端设备与端口；单击选中、拖动端点改接、右键删除；选中后点中间 × 或按 Del 也可删。</p>
           <p><b>手机上：</b>拖卡片＝移动；拖空白＝平移；两指捏合＝缩放；连点两下＝打开控制台。</p>
         </details>
@@ -1765,10 +1820,10 @@ html[data-theme="light"] .palg-h:hover{background:rgba(47,129,247,.08)}
 
   <div class="term" id="term">
     <div class="tabs" id="tabs">
-      <div class="tab" data-wk="config">设备参数</div>
       <div class="tab on" data-wk="console">设备控制台</div>
       <div class="tab" data-wk="packets">报文监视器</div>
       <div class="tab" data-wk="dash">数据看板</div>
+      <div class="tab" data-wk="sys">全局设置</div>
       <span class="tb-sep" aria-hidden="true"></span>
       <div id="devTabs" style="display:flex;min-width:0;overflow-x:auto"></div>
       <div class="clock">
@@ -1780,12 +1835,9 @@ html[data-theme="light"] .palg-h:hover{background:rgba(47,129,247,.08)}
       </div>
     </div>
 
-    <div class="wk-pane" id="paneConfig">
-      <div class="wk-bar">
-        <span class="wk-title" id="cfgTitle">设备参数 · 选中画布上的设备后编辑</span>
-        <button class="btn" id="cfgReset" title="恢复该设备的出厂默认参数">恢复默认</button>
-      </div>
-      <div class="cfg-wrap" id="cfgBody"></div>
+    <div class="wk-pane" id="paneSys">
+      <div class="wk-bar"><span class="wk-title">全局设置 · 影响整个沙盘的显示与仿真</span></div>
+      <div class="cfg-wrap" id="sysBody"></div>
     </div>
 
     <div class="wk-pane screen on" id="paneConsole">
@@ -1830,8 +1882,24 @@ html[data-theme="light"] .palg-h:hover{background:rgba(47,129,247,.08)}
         <div class="dash-side" id="dashValues"></div>
       </div>
     </div>
-  </div>
-</div>
+  </div><!-- /app -->
+
+  <!-- 设备配置抽屉（非模态：画布与工作台保持可交互） -->
+  <aside class="cfg-drawer" id="cfgDrawer" aria-hidden="true">
+    <header class="cfg-drawer-h">
+      <div class="cfg-dtitle"><b id="cfgTitle">设备参数</b><span id="cfgBadge"></span></div>
+      <button class="cfg-dmin" id="cfgMin" title="最小化（保留读数条）">—</button>
+      <button class="cfg-dclose" id="cfgClose" title="关闭（Esc）">×</button>
+    </header>
+    <div class="cfg-mini" id="cfgMini"></div>
+    <div class="cfg-wrap" id="cfgBody"></div>
+    <footer class="cfg-drawer-f">
+      <button class="btn" id="cfgViewPkts">本设备报文</button>
+      <button class="btn" id="cfgConsole">控制台</button>
+      <button class="btn" id="cfgReset">恢复默认</button>
+    </footer>
+  </aside>
+</div><!-- /app -->
 
 <div class="mask" id="mask"><div class="modal" id="modal"></div></div>
 <div class="toast" id="toast"></div>
@@ -2662,6 +2730,9 @@ const wiresEl = document.getElementById('wires');
 const notesEl = document.getElementById('notes');
 let pendingWire = null, drag = null, pan = null, selWire = null, selNote = null;
 let wireDrag = null, hoverWire = null;
+/* 触摸：双指捏合缩放。touch-action:none 禁掉了浏览器原生手势，必须自己接管 */
+const activePointers = new Map();
+let pinch = null;
 
 /* 连线悬停提示：显示两端设备/端口、电气类型与可用操作 */
 function wireDesc(w) {
@@ -2814,6 +2885,7 @@ function renderCard(d) {
       '<div class="nm">' + esc(d.name) + '</div>' +
       '<div class="md">' + esc(def.name) + ' · ' + esc(def.model) + '</div></div>' +
       (tag ? '<span class="tag">' + esc(tag) + '</span>' : '') +
+      '<button class="gear" title="设备参数（配置抽屉）">⚙</button>' +
       '<button class="x" title="删除设备">×</button></div>' +
     '<div class="rd"><i class="live' + (S.sim.running ? '' : ' stop') + '"></i>' + val.html + '</div>' +
     '<div class="ports">' + portHtml + '</div>';
@@ -2898,6 +2970,22 @@ function updateHUD() {
 
 /* ---------- 指针交互 ---------- */
 stageInner.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'touch') {
+    activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (activePointers.size >= 2) {
+      drag = null; pan = null; wireDrag = null; pendingWire = null; hideWireTip();
+      const pts = Array.from(activePointers.values()).slice(0, 2);
+      const r = stage.getBoundingClientRect();
+      const cx = (pts[0].x + pts[1].x) / 2 - r.left, cy = (pts[0].y + pts[1].y) / 2 - r.top;
+      pinch = {
+        dist: Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)),
+        k: S.view.k,
+        wx: (cx - S.view.x) / S.view.k,
+        wy: (cy - S.view.y) / S.view.k
+      };
+      e.preventDefault(); return;
+    }
+  }
   const subEl = e.target.closest('.gp-sub');
   const portEl = e.target.closest('.port');
   const cardEl = e.target.closest('.card');
@@ -2975,6 +3063,16 @@ stageInner.addEventListener('pointerdown', e => {
 });
 
 window.addEventListener('pointermove', e => {
+  if (activePointers.has(e.pointerId)) activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && activePointers.size >= 2) {
+    const pts = Array.from(activePointers.values()).slice(0, 2);
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    const r = stage.getBoundingClientRect();
+    const cx = (pts[0].x + pts[1].x) / 2 - r.left, cy = (pts[0].y + pts[1].y) / 2 - r.top;
+    const k = Math.max(.4, Math.min(2.2, pinch.k * dist / pinch.dist));
+    S.view.k = k; S.view.x = cx - pinch.wx * k; S.view.y = cy - pinch.wy * k;
+    applyView(); e.preventDefault(); return;
+  }
   if (wireDrag) {
     const dist = Math.hypot(e.clientX - wireDrag.sx, e.clientY - wireDrag.sy);
     if (!wireDrag.active && dist > 5) wireDrag.active = true;
@@ -3017,7 +3115,13 @@ window.addEventListener('pointermove', e => {
     applyView();
   }
 });
+window.addEventListener('pointercancel', e => {
+  activePointers.delete(e.pointerId);
+  if (pinch && activePointers.size < 2) pinch = null;
+});
 window.addEventListener('pointerup', e => {
+  activePointers.delete(e.pointerId);
+  if (pinch) { if (activePointers.size < 2) { pinch = null; save(); } return; }
   if (wireDrag) {
     const wd = wireDrag; wireDrag = null;
     document.querySelectorAll('.rewire-ok').forEach(el => el.classList.remove('rewire-ok'));
@@ -3073,10 +3177,17 @@ cardsEl.addEventListener('dblclick', e => {
   if (d && (d.type === 'dash' || d.type === 'hmi')) {
     renderAll(); openPageEditor(); return;
   }
-  openWorkbench('config');
-  renderConsole();
+  if (typeof openConfig === 'function') { openConfig(d); return; }
+  openWorkbench('console');
 });
 cardsEl.addEventListener('click', e => {
+  const gear = e.target.closest('.gear');
+  if (gear) {
+    e.stopPropagation();
+    S.activeDev = gear.closest('.card').dataset.id;
+    if (typeof openConfig === 'function') openConfig(byId(S.activeDev));
+    return;
+  }
   const x = e.target.closest('.x');
   if (!x) return;
   e.stopPropagation();
@@ -3135,7 +3246,10 @@ window.addEventListener('keydown', e => {
       S.activeDev = null; updateAnalogChannels(false); renderAll(); save();
     }
   }
-  if (e.key === 'Escape') { pendingWire = null; renderAll(); }
+  if (e.key === 'Escape') {
+    if (typeof cfgDrawerOpen === 'function' && cfgDrawerOpen() && typeof closeConfig === 'function') closeConfig();
+    pendingWire = null; renderAll();
+  }
   if (e.ctrlKey && e.key === '`') { e.preventDefault(); toggleTerm(); }
 });
 
@@ -3251,11 +3365,11 @@ function toggleTerm() { termOpen(!termEl.classList.contains('open')); }
 function openWorkbench(mode) {
   termOpen(true); wkMode = mode;
   document.querySelectorAll('#tabs .tab[data-wk]').forEach(t => t.classList.toggle('on', t.dataset.wk === mode));
-  ['console', 'config', 'packets', 'dash'].forEach(m => {
+  ['console', 'sys', 'packets', 'dash'].forEach(m => {
     const el = document.getElementById('pane' + m[0].toUpperCase() + m.slice(1));
     if (el) el.classList.toggle('on', m === mode);
   });
-  if (mode === 'config' && typeof renderConfig === 'function') renderConfig();
+  if (mode === 'sys' && typeof renderSys === 'function') renderSys();
   if (mode === 'packets') renderPackets();
   if (mode === 'dash') drawChart();
   if (mode === 'console') renderConsole();
@@ -3316,6 +3430,7 @@ const HELP = [
   '  map add <从站> <寄存器> <Topic> [scale] [qos] [every]   网关映射',
   '  map show | map del <序号> | map run <序号> | map clear',
   '  inject <rtu|tcp|mqtt|opcua|lora> <十六进制…>   手工注入一帧',
+  '  config               打开当前设备的参数抽屉',
   '  clear                清屏',
   '  help                 本帮助'
 ];
@@ -3353,6 +3468,8 @@ function runCmd(line) {
   if (cmd === 'inject' && typeof injectPacket === 'function') {
     injectPacket(a[1] || 'rtu', a.slice(2).join(' '), d.name); return;
   }
+  if (cmd === 'config' && typeof openConfig === 'function') { openConfig(d); return; }
+  if (cmd === 'pagerefresh') { renderPackets(); return; }
 
   if (cmd === 'show' && a[1] === 'wiring') {
     termPrint('端口接线表（● 已接 / ○ 未接）：', 'hl');
@@ -3538,8 +3655,8 @@ document.getElementById('devTabs').addEventListener('click', e => {
     renderAll(); save(); return;
   }
   S.activeDev = t.dataset.dev; renderConsole(); renderAll();
-  if (wkMode === 'config' && typeof renderConfig === 'function') renderConfig();
   if (wkMode === 'packets') renderPackets();
+  if (typeof cfgDrawerOpen === 'function' && cfgDrawerOpen() && typeof renderConfig === 'function') renderConfig();
 });
 
 /* ---------------- 报文监视器 ---------------- */
@@ -3714,6 +3831,40 @@ function loop(ts) {
  * ========================================================================= */
 
 let cfgScroll = 0;
+let cfgRestoreTerm = null;   /* 抽屉打开前的收起状态，关闭后恢复 */
+function cfgDrawerOpen() { return document.getElementById('cfgDrawer').classList.contains('open'); }
+function openConfig(d) {
+  const el = document.getElementById('cfgDrawer'); if (!el) return;
+  if (!d) { toast('请先选中设备'); return; }
+  S.activeDev = d.id;
+  if (!cfgDrawerOpen() && typeof termOpen === 'function') {
+    cfgRestoreTerm = document.getElementById('term').classList.contains('open');
+    if (cfgRestoreTerm) termOpen(false);
+  }
+  el.classList.add('open'); el.classList.remove('min');
+  el.setAttribute('aria-hidden', 'false');
+  renderConfig();
+  if (typeof renderAll === 'function') renderAll();
+}
+function closeConfig() {
+  const el = document.getElementById('cfgDrawer'); if (!el) return;
+  el.classList.remove('open'); el.setAttribute('aria-hidden', 'true');
+  if (cfgRestoreTerm && typeof termOpen === 'function') { termOpen(true); cfgRestoreTerm = null; }
+}
+function toggleCfgMin() {
+  const el = document.getElementById('cfgDrawer'); if (!el) return;
+  el.classList.toggle('min');
+  if (!el.classList.contains('min')) renderConfig();
+}
+function renderCfgMini(d) {
+  const el = document.getElementById('cfgMini'); if (!el) return;
+  const v = typeof devValue === 'function' ? devValue(d) : { txt: '' };
+  const st = d.state || {};
+  const last = (S.packets || []).slice().reverse().find(p => p.srcId === d.id || p.dstId === d.id);
+  el.innerHTML = '<span class="mini-l">当前值</span><span class="mini-v">' + esc(v.txt || '—') + '</span>' +
+    '<span class="mini-l">TX ' + (st.ok || 0) + ' / ERR ' + (st.err || 0) + '</span>' +
+    '<span class="mini-s">' + (last ? esc(last.desc.slice(0, 30)) : '暂无报文') + '</span>';
+}
 const BAUDS = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200];
 function cfgField(f) {
   const v = f.get();
@@ -3904,9 +4055,15 @@ function renderConfig() {
   const d = active();
   const body = document.getElementById('cfgBody');
   const title = document.getElementById('cfgTitle');
+  const badge = document.getElementById('cfgBadge');
   if (!body) return;
-  if (!d) { title.textContent = '设备参数 · 请先选中设备'; body.innerHTML = '<div class="wk-empty">点画布上的设备，或从工作台顶部的设备标签切换。</div>'; return; }
-  title.textContent = '设备参数 · ' + d.name + '（' + DEFS[d.type].name + '）';
+  renderCfgMini(d);
+  if (!d) {
+    title.textContent = '设备参数'; badge.textContent = '请先选中设备';
+    body.innerHTML = '<div class="wk-empty">点画布上的设备开始编辑。</div>'; return;
+  }
+  title.textContent = d.name;
+  badge.textContent = DEFS[d.type].name + ' · ' + (DEFS[d.type].role || '设备');
   cfgScroll = body.scrollTop;
   const groups = cfgSchema(d);
   body.innerHTML = groups.map(g =>
@@ -3915,22 +4072,8 @@ function renderConfig() {
       ? '<div class="cfg-f"><label>' + esc(f.label) + '</label><div class="cfg-static">' + esc(f.get()) + '</div></div>'
       : cfgField(f)).join('') + '</div>' : '') +
     (g.html || '') + (g.help ? '<p class="cfg-help">' + esc(g.help) + '</p>' : '') + '</section>'
-  ).join('') +
-  '<section class="cfg-group"><h4>快捷操作</h4><div class="cfg-actions">' +
-  '<button class="btn" id="cfgViewPkts">查看本设备报文</button>' +
-  '<button class="btn" id="cfgConsole">打开设备控制台</button>' +
-  '<button class="btn" id="cfgShowSignal">查看实时信号</button>' +
-  '</div><p class="cfg-help">参数改动立即生效并写入工程；控制台命令与这里双向同步。</p></section>';
+  ).join('') + '<p class="cfg-help">参数改动立即生效并写入工程；控制台命令与这里双向同步。</p>';
   body.scrollTop = cfgScroll;
-  document.getElementById('cfgViewPkts').onclick = () => {
-    document.getElementById('pktFilter').value = 'dev'; pktFilter = 'dev';
-    openWorkbench('packets');
-  };
-  document.getElementById('cfgConsole').onclick = () => openWorkbench('console');
-  document.getElementById('cfgShowSignal').onclick = () => {
-    const t = document.getElementById('screen'); if (!t) return;
-    openWorkbench('console'); runCmd('show signal'); runCmd('show wiring');
-  };
   bindCfgEvents(d);
 }
 function bindCfgEvents(d) {
@@ -6333,14 +6476,14 @@ function updateLabTag() {
 
 /* ---------------- 持久化 ---------------- */
 function projectText() {
-  const lines = ['@project NE_IOTSIM v1.1'];
+  const lines = ['@project NE_IOTSIM v1.2'];
   for (const d of S.devices) lines.push(['D', d.id, d.type, d.name, d.x, d.y,
     JSON.stringify(d.cfg), JSON.stringify(d.regs), JSON.stringify(d.coils)].join('|'));
   for (const w of S.wires) lines.push(['W', w.id, w.a.d, w.a.p, w.b.d, w.b.p].join('|'));
   for (const n of S.notes) lines.push(['N', n.id, n.x, n.y, n.text].join('|'));
   lines.push('@end');
   lines.push(JSON.stringify({
-    app: 'NE_IOTSIM', ver: '1.1.0', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
+    app: 'NE_IOTSIM', ver: '1.2.0', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
     lab: S.lab, labName: S.labName, view: S.view
   }));
   return lines.join('\n');
@@ -6397,7 +6540,7 @@ function showHelp() {
     '<h2>使用帮助</h2><button class="btn" id="modalClose">关闭</button></div><div class="mb">' +
     '<div class="kv"><b>三步上手</b><ol>' +
     '<li>左侧设备库先点<b>分类名</b>展开，再点设备加入画布；搜索框可按名称/型号过滤；再点分类名收起。手机上分类左右排列，展开后横向滑动选择。</li>' +
-    '<li>双击设备打开「设备参数」面板（量程 / 幅度 / 周期 / 地址 / Topic 都能改）；切到「设备控制台」输入 <code>poll 1 40001 2</code> 发起轮询。</li>' +
+    '<li>双击设备打开右侧「配置抽屉」（量程 / 幅度 / 周期 / 地址 / Topic 都能改）；工作台切到「设备控制台」输入 <code>poll 1 40001 2</code> 发起轮询。</li>' +
     '<li>切到「报文监视器」看逐字节解析，切到「数据看板」看实时曲线。</li></ol></div>' +
     '<div class="kv"><b>端口与颜色</b><p>RS485 已合并成一个「485」端口，框内 A / B 两个小框分别接线；ETH 是以太网口。' +
     '<span style="color:#f85149">红＝+24V</span>、灰＝GND、' +
@@ -6407,9 +6550,10 @@ function showHelp() {
     '<b>三线制 0–10V：</b>传感器 +24V / GND 供电，VOUT → AI+，AI- 与 GND 共地。控制台 <code>show signal</code> 看换算，<code>fault break</code> 注入断线。</p></div>' +
     '<div class="kv"><b>执行与模拟量输出</b><p>「模拟量输出模块」是 Modbus RTU 从站：AO1 输出 4–20mA，AO2 输出 0–10V。' +
     '双击它输入 <code>set out 1 60</code>（或 <code>reg 40001=60</code>）后，AO1 输出 13.6mA；把 AO+ / AO- 接到采集从站 AI+ / AI- 就形成闭环。</p></div>' +
-    '<div class="kv"><b>设备参数面板与连线</b><p>双击设备打开「设备参数」页：传感器可改基准值、变化幅度、周期、量程和单位；从站改地址 / 波特率 / 校验；' +
-    'MQTT 改 Topic / 上报周期 / QoS；规则、网关映射、OPC 节点、CoAP 资源、BACnet 对象都能直接增删行。改动立即生效并写入工程，' +
-    '控制台命令与面板双向同步。悬停连线看两端设备与端口；单击选中、拖动端点改接、右键删除，选中后点中间 × 或按 Del 也可删。' +
+    '<div class="kv"><b>配置抽屉与连线</b><p>双击设备或点卡片上的 ⚙ 打开右侧配置抽屉（手机上是全屏配置页）：传感器可改基准值、变化幅度、周期、量程和单位；' +
+    '从站改地址 / 波特率 / 校验；MQTT 改 Topic / 上报周期 / QoS；规则、网关映射、OPC 节点、CoAP 资源、BACnet 对象都能直接增删行。' +
+    '抽屉非模态，画布仍可交互；顶部读数条显示当前值与最近报文；「—」最小化只留读数条，Esc 或 × 关闭。' +
+    '工作台现在只做全局用途：设备控制台、报文监视器、数据看板、全局设置（主题 / 速度 / 缩放 / 清空数据）。' +
     '报文监视器可切「仅当前设备收发」看主从站配合。</p></div>' +
     '<div class="kv"><b>MQTT 四步走</b><p>把节点 / 看板的 ETH 口经交换机接到 Broker；双击节点 <code>connect</code> 建连；' +
     '<code>sub factory/+/temp qos 1</code> 订阅；<code>pub factory/line1/temp 26.5 -q 1 -r</code> 发布。' +
@@ -6437,7 +6581,7 @@ function showAbout() {
   openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
     '<h2>关于</h2><button class="btn" id="modalClose">关闭</button></div><div class="mb about">' +
     '<svg class="about-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
-    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.1 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
+    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.2 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
     '<p>单文件、零安装、完全离线的物联网教学仿真器。独立项目，不与其他沙盘互通，也不联网、不采集真实数据。</p>' +
     '<p>当前版本：Modbus RTU/TCP、MQTT 3.1.1、OPC UA、LoRaWAN、NB-IoT 链路、CoAP、BACnet/IP、Modbus→MQTT 网关转换、十六进制报文手工注入；标准信号与模拟量输出、规则引擎、可视化页面编辑与独立 HTML 导出；23 个实验。</p>' +
     '<p class="hint">教学模拟器，不是真实协议栈。不联网、不采集数据。Copyright © 2026 新易科技工作室 NewE · MIT License</p>' +
@@ -6453,6 +6597,82 @@ function clearAll() {
 }
 
 /* ---------------- 启动 ---------------- */
+/* ---------- 全局设置（工作台） ---------- */
+function renderSys() {
+  const body = document.getElementById('sysBody'); if (!body) return;
+  const light = document.documentElement.getAttribute('data-theme') === 'light';
+  body.innerHTML =
+    '<section class="cfg-group"><h4>显示</h4><div class="cfg-grid">' +
+    '<div class="cfg-f"><label>主题</label><select id="sysTheme"><option value="dark"' + (light ? '' : ' selected') + '>深色（默认）</option>' +
+    '<option value="light"' + (light ? ' selected' : '') + '>浅色</option></select><small>与顶栏主题按钮同步</small></div>' +
+    '<div class="cfg-f"><label>缩放</label><div class="cfg-actions"><button class="btn sm" id="sysZoomIn">放大</button>' +
+    '<button class="btn sm" id="sysZoomOut">缩小</button><button class="btn sm" id="sysZoomFit">复位 100%</button></div></div>' +
+    '</div></section>' +
+    '<section class="cfg-group"><h4>仿真</h4><div class="cfg-grid">' +
+    '<div class="cfg-f"><label>运行 / 暂停</label><div class="cfg-actions"><button class="btn sm" id="sysRun">' +
+    (S.sim.running ? '⏸ 暂停' : '▶ 运行') + '</button><button class="btn sm" id="sysStep">单步 +1s</button></div></div>' +
+    '<div class="cfg-f"><label>速度</label><select id="sysSpeed"><option value="1"' + (S.sim.speed === 1 ? ' selected' : '') + '>1x（实时）</option>' +
+    '<option value="2"' + (S.sim.speed === 2 ? ' selected' : '') + '>2x</option><option value="5"' + (S.sim.speed === 5 ? ' selected' : '') + '>5x</option></select></div>' +
+    '</div></section>' +
+    '<section class="cfg-group"><h4>数据</h4><div class="cfg-actions">' +
+    '<button class="btn" id="sysClearPkts">清空报文</button><button class="btn" id="sysClearHist">清空曲线历史</button>' +
+    '<button class="btn" id="sysExport">导出工程</button><button class="btn" id="sysImport">导入工程</button>' +
+    '</div><p class="cfg-help">工程配置保存在浏览器 localStorage；导出为 .txt 可跨设备恢复。</p></section>';
+  document.getElementById('sysTheme').onchange = e => {
+    if (e.target.value === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    else document.documentElement.removeAttribute('data-theme');
+    try { localStorage.setItem('ne-iotsim-theme', e.target.value); } catch (err) {}
+    setTimeout(drawChart, 30);
+  };
+  document.getElementById('sysSpeed').onchange = e => {
+    S.sim.speed = Number(e.target.value);
+    document.querySelectorAll('.spd').forEach(b => b.classList.toggle('on', Number(b.dataset.spd) === S.sim.speed));
+    syncClock();
+  };
+  document.getElementById('sysZoomIn').onclick = () => { S.view.k = Math.min(2.2, S.view.k * 1.15); applyView(); };
+  document.getElementById('sysZoomOut').onclick = () => { S.view.k = Math.max(.4, S.view.k / 1.15); applyView(); };
+  document.getElementById('sysZoomFit').onclick = () => { S.view = { x: 0, y: 0, k: 1 }; applyView(); };
+  document.getElementById('sysRun').onclick = () => { S.sim.running = !S.sim.running; syncClock(); renderSys(); };
+  document.getElementById('sysStep').onclick = () => { S.sim.t += 1000; tickSim(1000); syncClock(); toast('仿真时钟 +1s'); };
+  document.getElementById('sysClearPkts').onclick = () => {
+    S.packets = []; S.activePkt = null; renderPackets(); renderPktDetail(); toast('报文已清空');
+  };
+  document.getElementById('sysClearHist').onclick = () => {
+    S.history = []; S.sampleLog = []; S.chart.series = [];
+    S.devices.forEach(d => { d.history = []; Object.values(d.state.topics || {}).forEach(t => t.hist = []); });
+    renderDashCharts(); toast('曲线历史已清空');
+  };
+  document.getElementById('sysExport').onclick = doExport;
+  document.getElementById('sysImport').onclick = () => document.getElementById('fileImport').click();
+}
+
+/* ---------- 设备配置抽屉：底部按钮 ---------- */
+function bindConfigDrawer() {
+  const c = document.getElementById('cfgClose'), m = document.getElementById('cfgMin');
+  if (c) c.onclick = closeConfig;
+  if (m) m.onclick = toggleCfgMin;
+  const vp = document.getElementById('cfgViewPkts');
+  if (vp) vp.onclick = () => {
+    document.getElementById('pktFilter').value = 'dev'; pktFilter = 'dev';
+    if (!document.getElementById('term').classList.contains('open')) termOpen(true);
+    openWorkbench('packets');
+  };
+  const cc = document.getElementById('cfgConsole');
+  if (cc) cc.onclick = () => {
+    if (!document.getElementById('term').classList.contains('open')) termOpen(true);
+    openWorkbench('console');
+  };
+  const rs = document.getElementById('cfgReset');
+  if (rs) rs.onclick = () => {
+    const d = active(); if (!d) return toast('请先选中设备');
+    if (!confirm('恢复「' + d.name + '」的出厂参数？当前配置会被覆盖。')) return;
+    d.cfg = clone(DEFS[d.type].cfg); d.regs = clone(DEFS[d.type].regs || {});
+    d.coils = clone(DEFS[d.type].coils || {});
+    d.state.nodes = null; d.state.res = null; d.state.objs = null;
+    applyCfgChange(d); renderConfig(); toast('已恢复默认参数');
+  };
+}
+
 function bindUI() {
   document.getElementById('btnLab').onclick = showLabs;
   document.getElementById('btnTerm').onclick = toggleTerm;
@@ -6475,15 +6695,7 @@ function bindUI() {
   document.querySelectorAll('.spd').forEach(b => b.onclick = () => { S.sim.speed = Number(b.dataset.spd); syncClock(); });
   document.getElementById('pktClear').onclick = () => { S.packets = []; S.activePkt = null; renderPackets(); renderPktDetail(); };
   document.getElementById('dashRefresh').onclick = renderDashCharts;
-  const cfgReset = document.getElementById('cfgReset');
-  if (cfgReset) cfgReset.onclick = () => {
-    const d = active(); if (!d) return toast('请先选中设备');
-    if (!confirm('恢复「' + d.name + '」的出厂参数？当前配置会被覆盖。')) return;
-    d.cfg = clone(DEFS[d.type].cfg); d.regs = clone(DEFS[d.type].regs || {});
-    d.coils = clone(DEFS[d.type].coils || {});
-    d.state.nodes = null; d.state.res = null; d.state.objs = null;
-    applyCfgChange(d); renderConfig(); toast('已恢复默认参数');
-  };
+  bindConfigDrawer();
   document.getElementById('btnPageEdit').onclick = () => {
     if (!S.activeDev) { toast('请先点选看板 / 可视化终端'); return; }
     openPageEditor();
