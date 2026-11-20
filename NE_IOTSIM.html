@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   NE_IOTSIM —— 新易物联网沙盘（单文件离线版）
-  版本：v1.0 (发布版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
+  版本：v1.1 (交互增强版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
   Copyright (c) 2026 新易科技工作室 NewE
   作者：Liuyi  <yimr@sohu.com>
   协议：MIT License
@@ -1286,6 +1286,34 @@ html[data-theme="light"] .card .port .lab{color:#111;text-shadow:none}
 .stage-inner{user-select:none;-webkit-user-select:none;touch-action:none}
 [hidden]{display:none !important}
 
+/* ---- 连线：选中保色不消失、悬停信息卡、拖动改接 ---- */
+.card .head{border-radius:7px 7px 0 0}
+.wire-g.sel .wire{
+  stroke-width:3.5;opacity:1;stroke-dasharray:none;
+  filter:drop-shadow(0 0 5px rgba(47,129,247,.75));
+}
+.wire-g.rewiring .wire{stroke-dasharray:6 5;stroke-width:2.5;opacity:.95}
+.wire-g:hover .wire-x{opacity:0;pointer-events:none}
+.wire-g.sel .wire-x{opacity:1;pointer-events:auto}
+.port.rewire-ok,.gp-sub.rewire-ok{
+  outline:2px solid #3fb950;outline-offset:1px;
+  box-shadow:0 0 8px rgba(63,185,80,.55);
+}
+.wire-tip{
+  position:absolute;z-index:30;pointer-events:none;max-width:330px;
+  display:flex;flex-direction:column;gap:3px;padding:8px 11px;
+  border-radius:8px;border:1px solid #39506b;background:rgba(13,20,30,.96);
+  box-shadow:0 8px 24px rgba(0,0,0,.45);backdrop-filter:blur(4px);
+  font-size:11px;line-height:1.45;
+}
+.wire-tip b{color:#e6edf3;font-size:11.5px}
+.wire-tip span{color:#9fb4cc}
+.wire-tip em{color:#79b8ff;font-style:normal;font-size:10.5px}
+html[data-theme="light"] .wire-tip{background:rgba(255,255,255,.97);border-color:#9dc0ea}
+html[data-theme="light"] .wire-tip b{color:#111}
+html[data-theme="light"] .wire-tip span{color:#4a5566}
+html[data-theme="light"] .wire-tip em{color:#1f5fbf}
+
 .card .head > div{flex:1;min-width:0}
 .card .head .md{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
@@ -1344,9 +1372,13 @@ html[data-theme="light"] .card .port .lab{color:#111;text-shadow:none}
 .pkt-list::-webkit-scrollbar,.pkt-detail::-webkit-scrollbar{width:8px}
 .pkt-list::-webkit-scrollbar-thumb,.pkt-detail::-webkit-scrollbar-thumb{background:#30363d;border-radius:4px}
 .pkt{
-  display:grid;grid-template-columns:78px 52px 1fr 74px;gap:8px;align-items:center;
+  display:grid;grid-template-columns:78px 52px 18px 1fr 74px;gap:7px;align-items:center;
   padding:6px 10px;border-bottom:1px solid rgba(48,54,61,.6);cursor:pointer;white-space:nowrap;
 }
+.pkt .dir{font-size:12px;color:var(--tx3);text-align:center}
+.pkt.rel{border-left:2px solid var(--cy);background:rgba(47,129,247,.07)}
+.pkt.rel .dir{color:var(--cy)}
+html[data-theme="light"] .pkt.rel{background:rgba(47,129,247,.07)}
 .pkt:hover{background:rgba(47,129,247,.07)}
 .pkt.sel{background:rgba(47,129,247,.14);box-shadow:inset 2px 0 0 var(--cy)}
 .pkt .tm{color:var(--tx3)}
@@ -1525,6 +1557,49 @@ code{font-family:var(--mono);background:var(--bg3);border:1px solid var(--line);
 .modal.page-modal.previewing .pg-tools{display:none}
 .modal.page-modal.previewing .pg-widget{cursor:default}
 
+/* ---- 设备参数面板 ---- */
+.cfg-wrap{flex:1;min-height:0;overflow-y:auto;padding:12px 14px 18px;display:flex;flex-direction:column;gap:14px}
+.cfg-group{border:1px solid var(--line);border-radius:9px;background:var(--bg2);padding:11px 13px 13px}
+.cfg-group h4{
+  font-size:11px;font-weight:600;letter-spacing:.7px;color:#79b8ff;
+  margin:0 0 11px;padding-bottom:7px;border-bottom:1px solid var(--line);
+}
+.cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px 14px}
+.cfg-f{display:flex;flex-direction:column;gap:4px;min-width:0}
+.cfg-f label{font-size:11px;color:var(--tx3)}
+.cfg-f input,.cfg-f select,.cfg-f textarea{
+  width:100%;min-width:0;background:var(--bg3);border:1px solid var(--line);border-radius:6px;
+  color:var(--tx);font-size:12px;padding:6px 8px;outline:none;font-family:inherit;
+}
+.cfg-f input:focus,.cfg-f select:focus,.cfg-f textarea:focus{border-color:var(--cy)}
+.cfg-f small{font-size:10px;color:var(--tx3);line-height:1.4}
+.cfg-static{font-size:12px;color:var(--tx2);padding:6px 8px;background:var(--bg3);border-radius:6px;border:1px solid var(--line);min-height:30px}
+.cfg-check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx2)}
+.cfg-check input{width:auto}
+.cfg-help{font-size:11px;color:var(--tx3);line-height:1.6;margin:9px 0 0;padding-top:8px;border-top:1px dashed var(--line)}
+.cfg-table-wrap{overflow-x:auto}
+.cfg-table{width:100%;border-collapse:collapse;font-size:11px}
+.cfg-table th{text-align:left;color:var(--tx3);font-weight:600;padding:5px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.cfg-table td{padding:4px 5px;border-bottom:1px solid rgba(48,54,61,.45)}
+.cfg-table input{
+  width:100%;min-width:64px;background:var(--bg3);border:1px solid transparent;border-radius:4px;
+  color:var(--tx);font-size:11px;padding:4px 5px;
+}
+.cfg-table input:focus{border-color:var(--cy);outline:none}
+.cfg-del{
+  width:20px;height:20px;border-radius:5px;border:1px solid var(--line);background:transparent;
+  color:var(--rd);cursor:pointer;line-height:1;
+}
+.cfg-del:hover{background:rgba(248,81,73,.14)}
+.cfg-add{margin-top:8px}
+.cfg-actions{display:flex;gap:8px;flex-wrap:wrap}
+html[data-theme="light"] .cfg-group{background:#fff}
+html[data-theme="light"] .cfg-f input,
+html[data-theme="light"] .cfg-f select,
+html[data-theme="light"] .cfg-f textarea,
+html[data-theme="light"] .cfg-static,
+html[data-theme="light"] .cfg-table input{background:#f6f8fa}
+
 /* 报文手工注入器 */
 .inj-body .inj-lead{font-size:12px;color:var(--tx2);line-height:1.8;margin:0 0 12px}
 .inj-row{display:flex;align-items:center;gap:9px;margin-bottom:10px;flex-wrap:wrap}
@@ -1649,8 +1724,8 @@ html[data-theme="light"] .palg-h:hover{background:rgba(47,129,247,.08)}
           <p><b style="color:#f85149">红＝+24V</b>，灰＝GND，<b style="color:#e3b341">黄褐＝4–20mA</b>，<b style="color:#79b8ff">蓝＝0–10V</b>，黄＝RS485，绿＝以太网。</p>
           <p>24V+ → 变送器「+」；变送器「-」→ AI+；AI- → GND。类型不匹配会拒绝连线。</p>
           <p>RS485 已合并为一个「485」端口，框内 <b>A / B</b> 小框分别接线；点两个兼容端口连。</p>
-          <p><b>双击</b>设备打开控制台；看板 / 可视化终端双击＝<b>页面编辑器</b>。</p>
-          <p>连错了：点线选中按 Delete，或点线中点的 ×。</p>
+          <p><b>双击</b>设备打开「设备参数」面板；看板 / 可视化终端双击＝<b>页面编辑器</b>。</p>
+          <p>连线：悬停看两端设备与端口；单击选中、拖动端点改接、右键删除；选中后点中间 × 或按 Del 也可删。</p>
           <p><b>手机上：</b>拖卡片＝移动；拖空白＝平移；两指捏合＝缩放；连点两下＝打开控制台。</p>
         </details>
       </div>
@@ -1668,6 +1743,7 @@ html[data-theme="light"] .palg-h:hover{background:rgba(47,129,247,.08)}
              <span class="empty-tip">按住卡片可拖动摆放，拖空白处可平移画布</span></p>
         </div>
       </div>
+      <div class="wire-tip" id="wireTip" hidden></div>
       <div class="zoombar" id="zoomBar">
         <button id="btnZoomIn" title="放大" aria-label="放大">＋</button>
         <button id="btnZoomOut" title="缩小" aria-label="缩小">－</button>
@@ -1689,6 +1765,7 @@ html[data-theme="light"] .palg-h:hover{background:rgba(47,129,247,.08)}
 
   <div class="term" id="term">
     <div class="tabs" id="tabs">
+      <div class="tab" data-wk="config">设备参数</div>
       <div class="tab on" data-wk="console">设备控制台</div>
       <div class="tab" data-wk="packets">报文监视器</div>
       <div class="tab" data-wk="dash">数据看板</div>
@@ -1701,6 +1778,14 @@ html[data-theme="light"] .palg-h:hover{background:rgba(47,129,247,.08)}
         <button class="btn sm spd" data-spd="2">2x</button>
         <button class="btn sm spd" data-spd="5">5x</button>
       </div>
+    </div>
+
+    <div class="wk-pane" id="paneConfig">
+      <div class="wk-bar">
+        <span class="wk-title" id="cfgTitle">设备参数 · 选中画布上的设备后编辑</span>
+        <button class="btn" id="cfgReset" title="恢复该设备的出厂默认参数">恢复默认</button>
+      </div>
+      <div class="cfg-wrap" id="cfgBody"></div>
     </div>
 
     <div class="wk-pane screen on" id="paneConsole">
@@ -1722,6 +1807,7 @@ html[data-theme="light"] .palg-h:hover{background:rgba(47,129,247,.08)}
           <option value="lora">仅 LoRaWAN</option><option value="coap">仅 CoAP</option>
           <option value="bacnet">仅 BACnet</option><option value="nbiot">仅 NB-IoT</option>
           <option value="inj">仅手工注入</option>
+          <option value="dev">仅当前设备收发</option>
           <option value="err">仅错误帧</option>
         </select>
         <button class="btn" id="pktClear">清空报文</button>
@@ -2575,6 +2661,44 @@ const cardsEl = document.getElementById('cards');
 const wiresEl = document.getElementById('wires');
 const notesEl = document.getElementById('notes');
 let pendingWire = null, drag = null, pan = null, selWire = null, selNote = null;
+let wireDrag = null, hoverWire = null;
+
+/* 连线悬停提示：显示两端设备/端口、电气类型与可用操作 */
+function wireDesc(w) {
+  const a = byId(w.a.d), b = byId(w.b.d);
+  if (!a || !b) return null;
+  const t = portType(a, w.a.p), nm = WIRE_NAME[t] || '连线';
+  return {
+    title: a.name + ' · ' + w.a.p + '  ↔  ' + b.name + ' · ' + w.b.p,
+    meta: nm + '  ·  ' + (wireLive(w) ? '数据流动中' : '静态') + '  ·  ' + (S.sim.running ? '仿真运行中' : '仿真暂停'),
+    tip: '点击选中  ·  拖动改接  ·  右键删除  ·  Del 删除'
+  };
+}
+function showWireTip(w, e) {
+  const el = document.getElementById('wireTip'); if (!el) return;
+  const info = wireDesc(w); if (!info) return;
+  el.innerHTML = '<b>' + esc(info.title) + '</b><span>' + esc(info.meta) + '</span><em>' + esc(info.tip) + '</em>';
+  el.hidden = false;
+  const r = document.getElementById('stage').getBoundingClientRect();
+  let x = e.clientX - r.left + 14, y = e.clientY - r.top + 16;
+  const tw = el.offsetWidth || 280, th = el.offsetHeight || 56;
+  if (x + tw > r.width - 8) x = e.clientX - r.left - tw - 14;
+  if (y + th > r.height - 8) y = e.clientY - r.top - th - 12;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+}
+function hideWireTip() { const el = document.getElementById('wireTip'); if (el) el.hidden = true; }
+function deleteWire(id) {
+  S.wires = S.wires.filter(w => w.id !== id);
+  if (selWire === id) selWire = null;
+  if (wireDrag && wireDrag.id === id) wireDrag = null;
+  hideWireTip(); updateAnalogChannels(false); renderAll(); save();
+}
+function portHitAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const sub = el && el.closest('.gp-sub'), port = el && el.closest('.port'), card = el && el.closest('.card');
+  if (!port || !card) return null;
+  return { d: card.dataset.id, p: sub ? sub.dataset.p : port.dataset.p, el: sub || port };
+}
 let scaleCandidates = [];
 const SVGNS = 'http://www.w3.org/2000/svg';
 
@@ -2728,15 +2852,19 @@ function drawWires() {
     const col = wireColor(w), live = wireLive(w);
     const label = wireLabel(w);
     const dpath = 'M' + x1 + ' ' + y1 + ' L' + mx + ' ' + my + ' L' + x2 + ' ' + y2;
-    html += '<g class="wire-g' + (selWire === w.id ? ' sel' : '') + (live ? ' live' : '') + '" data-w="' + w.id + '">' +
-      '<path class="wire" d="' + dpath + '" stroke="' + col + '" fill="none" marker-end="url(#wireArrow)"/>' +
-      '<path class="wire-hit" d="' + dpath + '"/>' +
-      '<circle class="wire-dot" cx="' + mx + '" cy="' + my + '" r="3" fill="' + col + '"/>' +
-      (label ? '<g class="wire-tag" transform="translate(' + (mx - label.length * 3.4 - 5) + ',' + (my - 17) + ')">' +
+    const inRewire = wireDrag && wireDrag.active && wireDrag.id === w.id;
+    const pathD = inRewire
+      ? 'M' + (wireDrag.anchorFixed.x) + ' ' + (wireDrag.anchorFixed.y) + ' L' + wireDrag.mx + ' ' + wireDrag.my
+      : dpath;
+    html += '<g class="wire-g' + (selWire === w.id ? ' sel' : '') + (live ? ' live' : '') + (inRewire ? ' rewiring' : '') + '" data-w="' + w.id + '">' +
+      '<path class="wire" d="' + pathD + '" style="stroke:' + col + '" fill="none" marker-end="url(#wireArrow)"/>' +
+      '<path class="wire-hit" d="' + pathD + '"/>' +
+      (inRewire ? '' : '<circle class="wire-dot" cx="' + mx + '" cy="' + my + '" r="3" fill="' + col + '"/>') +
+      (label && !inRewire ? '<g class="wire-tag" transform="translate(' + (mx - label.length * 3.4 - 5) + ',' + (my - 17) + ')">' +
         '<rect x="0" y="0" width="' + (label.length * 6.8 + 10) + '" height="14" rx="4"/>' +
         '<text x="5" y="10">' + esc(label) + '</text></g>' : '') +
-      '<g class="wire-x" transform="translate(' + mx + ',' + my + ')">' +
-        '<circle r="8"/><path d="M-3 -3 L3 3 M3 -3 L-3 3"/></g></g>';
+      (inRewire ? '' : '<g class="wire-x" transform="translate(' + mx + ',' + my + ')">' +
+        '<circle r="8"/><path d="M-3 -3 L3 3 M3 -3 L-3 3"/></g>') + '</g>';
   }
   wiresEl.innerHTML = html;
 }
@@ -2778,11 +2906,24 @@ stageInner.addEventListener('pointerdown', e => {
   const wireG = e.target.closest('.wire-g');
   if (wireX) {
     e.stopPropagation();
-    S.wires = S.wires.filter(w => w.id !== wireG.dataset.w);
-    selWire = null; updateAnalogChannels(false); renderAll(); save(); return;
+    deleteWire(wireG.dataset.w); return;
   }
   if (wireG) {
-    selWire = wireG.dataset.w; drawWires(); return;
+    e.stopPropagation(); e.preventDefault();
+    const w = S.wires.find(x => x.id === wireG.dataset.w);
+    if (!w) return;
+    const p1 = portCenter(byId(w.a.d), w.a.p), p2 = portCenter(byId(w.b.d), w.b.p);
+    const d1 = p1 ? Math.hypot(e.clientX - (p1.x * S.view.k + stage.getBoundingClientRect().left + S.view.x),
+                               e.clientY - (p1.y * S.view.k + stage.getBoundingClientRect().top + S.view.y)) : Infinity;
+    const d2 = p2 ? Math.hypot(e.clientX - (p2.x * S.view.k + stage.getBoundingClientRect().left + S.view.x),
+                               e.clientY - (p2.y * S.view.k + stage.getBoundingClientRect().top + S.view.y)) : Infinity;
+    const moveEnd = d1 <= d2 ? 'a' : 'b';
+    const fixedEnd = moveEnd === 'a' ? 'b' : 'a';
+    const fd = byId(w[fixedEnd].d), fp = portCenter(fd, w[fixedEnd].p);
+    wireDrag = { id: w.id, sx: e.clientX, sy: e.clientY, moved: false, active: false,
+      moveEnd, fixedEnd, fixed: { d: w[fixedEnd].d, p: w[fixedEnd].p },
+      anchorFixed: fp || { x: 0, y: 0 }, mx: 0, my: 0 };
+    return;
   }
   if (portEl && cardEl) {
     e.stopPropagation(); e.preventDefault();
@@ -2834,6 +2975,24 @@ stageInner.addEventListener('pointerdown', e => {
 });
 
 window.addEventListener('pointermove', e => {
+  if (wireDrag) {
+    const dist = Math.hypot(e.clientX - wireDrag.sx, e.clientY - wireDrag.sy);
+    if (!wireDrag.active && dist > 5) wireDrag.active = true;
+    if (wireDrag.active) {
+      const r = stage.getBoundingClientRect();
+      wireDrag.mx = (e.clientX - r.left - S.view.x) / S.view.k;
+      wireDrag.my = (e.clientY - r.top - S.view.y) / S.view.k;
+      hideWireTip();
+      const t = portType(byId(wireDrag.fixed.d), wireDrag.fixed.p);
+      document.querySelectorAll('.port,.gp-sub').forEach(el => {
+        const card = el.closest('.card'); if (!card) return;
+        const pt = portType(byId(card.dataset.id), el.dataset.p);
+        el.classList.toggle('rewire-ok', !!compatible(t, pt) && !(card.dataset.id === wireDrag.fixed.d && el.dataset.p === wireDrag.fixed.p));
+      });
+      drawWires();
+    }
+    return;
+  }
   if (!drag && !pan) return;
   if (drag) {
     const dx = (e.clientX - drag.sx) / S.view.k, dy = (e.clientY - drag.sy) / S.view.k;
@@ -2858,11 +3017,54 @@ window.addEventListener('pointermove', e => {
     applyView();
   }
 });
-window.addEventListener('pointerup', () => {
+window.addEventListener('pointerup', e => {
+  if (wireDrag) {
+    const wd = wireDrag; wireDrag = null;
+    document.querySelectorAll('.rewire-ok').forEach(el => el.classList.remove('rewire-ok'));
+    if (wd.active) {
+      const hit = portHitAt(e.clientX, e.clientY);
+      const w = S.wires.find(x => x.id === wd.id);
+      if (hit && w) {
+        const okType = compatible(portType(byId(wd.fixed.d), wd.fixed.p), portType(byId(hit.d), hit.p));
+        const occupied = !MULTI_PORT[portType(byId(hit.d), hit.p)] && otherEnd(hit.d, hit.p) &&
+          !(otherEnd(hit.d, hit.p).d === wd.fixed.d && otherEnd(hit.d, hit.p).p === wd.fixed.p);
+        if (!okType) toast('端口不匹配，无法改接到这里');
+        else if (occupied) toast('目标端口已被占用，请先删除原来的连线');
+        else {
+          w[wd.moveEnd] = { d: hit.d, p: hit.p };
+          selWire = w.id; updateAnalogChannels(false); renderAll(); save();
+          toast('连线已改接到 ' + byId(hit.d).name + ' · ' + hit.p);
+        }
+      } else drawWires();
+    } else { selWire = wd.id; drawWires(); }
+    return;
+  }
   if (drag) { save(); drag = null; }
   pan = null;
 });
 
+/* 连线悬停提示 + 右键删除 */
+stage.addEventListener('pointerover', e => {
+  const g = e.target.closest('.wire-g');
+  if (!g || wireDrag || drag || pan) return;
+  const w = S.wires.find(x => x.id === g.dataset.w);
+  if (w) { hoverWire = w.id; showWireTip(w, e); }
+});
+stage.addEventListener('pointermove', e => {
+  if (hoverWire && !wireDrag && !drag && !pan) {
+    const w = S.wires.find(x => x.id === hoverWire);
+    if (w) showWireTip(w, e);
+  }
+});
+stage.addEventListener('pointerout', e => {
+  const g = e.target.closest('.wire-g');
+  if (g && (!e.relatedTarget || !e.relatedTarget.closest('.wire-g'))) { hoverWire = null; hideWireTip(); }
+});
+stage.addEventListener('contextmenu', e => {
+  const g = e.target.closest('.wire-g'); if (!g) return;
+  e.preventDefault(); e.stopPropagation();
+  deleteWire(g.dataset.w);
+});
 cardsEl.addEventListener('dblclick', e => {
   const card = e.target.closest('.card');
   if (!card) return;
@@ -2871,7 +3073,7 @@ cardsEl.addEventListener('dblclick', e => {
   if (d && (d.type === 'dash' || d.type === 'hmi')) {
     renderAll(); openPageEditor(); return;
   }
-  openWorkbench('console');
+  openWorkbench('config');
   renderConsole();
 });
 cardsEl.addEventListener('click', e => {
@@ -3049,10 +3251,11 @@ function toggleTerm() { termOpen(!termEl.classList.contains('open')); }
 function openWorkbench(mode) {
   termOpen(true); wkMode = mode;
   document.querySelectorAll('#tabs .tab[data-wk]').forEach(t => t.classList.toggle('on', t.dataset.wk === mode));
-  ['console', 'packets', 'dash'].forEach(m => {
+  ['console', 'config', 'packets', 'dash'].forEach(m => {
     const el = document.getElementById('pane' + m[0].toUpperCase() + m.slice(1));
     if (el) el.classList.toggle('on', m === mode);
   });
+  if (mode === 'config' && typeof renderConfig === 'function') renderConfig();
   if (mode === 'packets') renderPackets();
   if (mode === 'dash') drawChart();
   if (mode === 'console') renderConsole();
@@ -3335,6 +3538,8 @@ document.getElementById('devTabs').addEventListener('click', e => {
     renderAll(); save(); return;
   }
   S.activeDev = t.dataset.dev; renderConsole(); renderAll();
+  if (wkMode === 'config' && typeof renderConfig === 'function') renderConfig();
+  if (wkMode === 'packets') renderPackets();
 });
 
 /* ---------------- 报文监视器 ---------------- */
@@ -3350,6 +3555,7 @@ function pktFiltered() {
   else if (pktFilter === 'bacnet') ps = ps.filter(p => p.medium === 'bacnet');
   else if (pktFilter === 'nbiot') ps = ps.filter(p => p.medium === 'nbiot');
   else if (pktFilter === 'inj') ps = ps.filter(p => p.dir === 'INJ');
+  else if (pktFilter === 'dev') ps = ps.filter(p => S.activeDev && (p.srcId === S.activeDev || p.dstId === S.activeDev));
   else if (pktFilter === 'err') ps = ps.filter(p => p.status === 'err');
   return ps;
 }
@@ -3359,9 +3565,12 @@ function mediumTag(m) {
     m === 'bacnet' ? 'BACnet' : m === 'nbiot' ? 'NB-IoT' : 'RTU';
 }
 function pktRow(p) {
-  return '<div class="pkt' + (S.activePkt === p.id ? ' sel' : '') + '" data-id="' + p.id + '">' +
+  const rel = S.activeDev && (p.srcId === S.activeDev || p.dstId === S.activeDev);
+  const arrow = p.dir === 'RX' ? '↙' : p.dir === 'TX' ? '↗' : '•';
+  return '<div class="pkt' + (S.activePkt === p.id ? ' sel' : '') + (rel ? ' rel' : '') + '" data-id="' + p.id + '">' +
     '<span class="tm">' + clock(p.t) + '</span>' +
     '<span class="pr ' + p.medium + '">' + mediumTag(p.medium) + '</span>' +
+    '<span class="dir">' + arrow + '</span>' +
     '<span class="desc">' + esc(p.dir + ' ' + p.src + ' → ' + p.dst) + ' <small>' + esc(p.desc) + '</small></span>' +
     '<span class="st ' + p.status + '">' + (p.status === 'ok' ? '正常' : p.status === 'warn' ? '等待' : '错误') + '</span></div>';
 }
@@ -3497,6 +3706,287 @@ function loop(ts) {
     }
   }
   rafId = requestAnimationFrame(loop);
+}
+
+/* =========================================================================
+ * NE_IOTSIM · 设备参数面板（每设备专属工作台）
+ * 按设备类型动态生成表单；与控制台命令双向同步，改动写入工程。
+ * ========================================================================= */
+
+let cfgScroll = 0;
+const BAUDS = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200];
+function cfgField(f) {
+  const v = f.get();
+  const id = 'cfg_' + f.k;
+  let ctrl = '';
+  if (f.type === 'select') {
+    ctrl = '<select id="' + id + '" data-k="' + f.k + '">' + f.options.map(o => {
+      const val = Array.isArray(o) ? o[0] : o, lab = Array.isArray(o) ? o[1] : o;
+      return '<option value="' + esc(val) + '"' + (String(v) === String(val) ? ' selected' : '') + '>' + esc(lab) + '</option>';
+    }).join('') + '</select>';
+  } else if (f.type === 'checkbox') {
+    ctrl = '<label class="cfg-check"><input type="checkbox" id="' + id + '" data-k="' + f.k + '"' + (v ? ' checked' : '') + ' /> 启用</label>';
+  } else if (f.type === 'textarea') {
+    ctrl = '<textarea id="' + id + '" data-k="' + f.k + '" rows="2">' + esc(v == null ? '' : v) + '</textarea>';
+  } else {
+    const attrs = 'id="' + id + '" data-k="' + f.k + '" value="' + esc(v == null ? '' : v) + '"' +
+      (f.min != null ? ' min="' + f.min + '"' : '') + (f.max != null ? ' max="' + f.max + '"' : '') +
+      (f.step != null ? ' step="' + f.step + '"' : '');
+    ctrl = '<input type="' + (f.type || 'text') + '" ' + attrs + ' />';
+  }
+  return '<div class="cfg-f"><label for="' + id + '">' + esc(f.label) + '</label>' + ctrl +
+    (f.help ? '<small>' + esc(f.help) + '</small>' : '') + '</div>';
+}
+function cfgTable(key, cols, rows) {
+  const head = cols.map(c => '<th>' + esc(c.label) + '</th>').join('') + '<th></th>';
+  const body = (rows || []).map((r, i) => '<tr data-i="' + i + '">' + cols.map(c =>
+    '<td><input data-tbl="' + key + '" data-i="' + i + '" data-col="' + c.k + '" value="' + esc(r[c.k] == null ? '' : r[c.k]) + '" /></td>'
+  ).join('') + '<td><button class="cfg-del" data-tbl="' + key + '" data-i="' + i + '" title="删除这一行">×</button></td></tr>').join('');
+  return '<div class="cfg-table-wrap"><table class="cfg-table"><thead><tr>' + head + '</tr></thead><tbody>' + body +
+    '</tbody></table><button class="btn sm cfg-add" data-tbl="' + key + '">＋ 添加一行</button></div>';
+}
+function cfgSchema(d) {
+  const def = DEFS[d.type], G = [];
+  const num = (label, obj, k, opt) => Object.assign({ k, label, type: 'number', get: () => obj[k], set: v => obj[k] = Number(v), step: 1 }, opt);
+  const txt = (label, obj, k, opt) => Object.assign({ k, label, type: 'text', get: () => obj[k], set: v => obj[k] = v }, opt);
+  const sel = (label, obj, k, options, opt) => Object.assign({ k, label, type: 'select', options, get: () => obj[k], set: v => obj[k] = v }, opt);
+
+  G.push({ title: '基本信息', fields: [
+    txt('设备名称', d, 'name', { help: '画布上显示的名字，也会用于报文里的源/目的' }),
+    { label: '设备型号', type: 'static', get: () => def.model }
+  ] });
+
+  /* 串口 / 从站地址 */
+  if (def.role === 'slave' || def.role === 'master' || def.role === 'both' ||
+      ['opcServer', 'opcClient', 'coapServer', 'coapNode', 'bacnetDev', 'bacnetClient', 'nbiotBS'].includes(d.type)) {
+    const f = [];
+    if (d.cfg.addr != null) f.push(num('Modbus 从站地址', d.cfg, 'addr', { min: 1, max: 247, help: '同一 RS485 总线上必须唯一' }));
+    if (d.cfg.baud != null) f.push(sel('串口波特率', d.cfg, 'baud', BAUDS, { help: '主站与从站必须一致，否则只有 TX 没有应答' }));
+    if (d.cfg.parity != null) f.push(sel('校验位', d.cfg, 'parity', [['N', '无校验 N'], ['E', '偶校验 E'], ['O', '奇校验 O']]));
+    if (d.cfg.sample != null) f.push(num('采样周期 ms', d.cfg, 'sample', { min: 100, step: 100 }));
+    if (f.length) G.push({ title: '串口 / 站址', fields: f });
+  }
+
+  /* 传感器：量程、基准、幅度、周期 */
+  if (d.cfg.sensor) {
+    const s = d.cfg.sensor;
+    G.push({ title: '传感器信号模型', fields: [
+      num('基准值', s, 'base', { step: 0.1, help: '物理量围绕该值波动' }),
+      num('变化幅度', s, 'amp', { step: 0.1, help: '波动的半幅；设 0 则恒定' }),
+      num('变化周期 ms', s, 'period', { min: 100, step: 100, help: '仿真时钟驱动，周期越短曲线越密' }),
+      num('量程下限', s, 'min', { step: 0.1 }),
+      num('量程上限', s, 'max', { step: 0.1 }),
+      txt('单位', s, 'unit'),
+      num('小数位', s, 'digits', { min: 0, max: 4 }),
+      sel('信号类型', s, 'signal', [['4-20mA', '4–20mA 两线制'], ['0-10V', '0–10V 三线制']],
+        { help: '仅变送器有此项；改成另一种信号时记得检查接线' }),
+      num('寄存器地址', s, 'reg', { help: '传感器读数写入的保持寄存器完整地址' })
+    ] });
+  }
+
+  /* 模拟量输出 */
+  if (def.ao) {
+    const rows = (d.cfg.channels || []).map((c, i) => Object.assign({ n: 'AO' + (i + 1) }, c));
+    G.push({ title: '模拟量输出通道', fields: [
+      { label: 'AO1 输出模式', type: 'static', get: () => (d.cfg.channels[0] || {}).mode + '  →  寄存器 40001' },
+      { label: 'AO2 输出模式', type: 'static', get: () => (d.cfg.channels[1] || {}).mode + '  →  寄存器 40002' },
+      { label: '設定方式', type: 'static', get: () => '控制台 set out <通道> <0~100> 或写寄存器' }
+    ] });
+  }
+
+  /* MQTT */
+  if (d.cfg.mqtt) {
+    const m = d.cfg.mqtt;
+    G.push({ title: 'MQTT 发布设置', fields: [
+      txt('上报 Topic', m, 'topic', { help: '支持 / 分层，如 factory/line1/temp' }),
+      num('上报周期 ms', m, 'report', { min: 200, step: 100, help: '设 0 关闭自动上报' }),
+      sel('QoS', m, 'qos', [[0, '0 · 最多一次'], [1, '1 · 至少一次'], [2, '2 · 恰好一次']])
+    ] });
+  }
+  if (def.role === 'broker') {
+    G.push({ title: 'Broker 状态', fields: [
+      { label: '在线客户端', type: 'static', get: () => Object.keys((d.state.mqb || {}).clients || {}).length + ' 个' },
+      { label: '订阅数', type: 'static', get: () => ((d.state.mqb || {}).subs || []).length + ' 条' },
+      { label: '保留主题', type: 'static', get: () => Object.keys((d.state.mqb || {}).retained || {}).length + ' 个' }
+    ] });
+  }
+  if (def.role === 'rule') {
+    G.push({ title: '规则表', html: cfgTable('rules', [
+      { k: 'src', label: '源 Topic' }, { k: 'op', label: '条件' }, { k: 'th', label: '阈值' },
+      { k: 'action', label: '动作' }, { k: 'topic', label: '目标 Topic' }, { k: 'payload', label: '载荷' }
+    ], d.cfg.rules || []), help: '条件：> >= < <= ==；动作：pub / coil / ao。coil 时目标 Topic 填设备名，载荷填线圈号。' });
+  }
+  if (def.role === 'both') {
+    G.push({ title: '协议转换映射表', html: cfgTable('maps', [
+      { k: 'slave', label: '从站' }, { k: 'reg', label: '寄存器' }, { k: 'topic', label: 'MQTT Topic' },
+      { k: 'scale', label: '比例' }, { k: 'qos', label: 'QoS' }, { k: 'every', label: '周期ms' }
+    ], d.cfg.maps || []), help: '例如 从站1 / 40001 / factory/temp / 0.1 —— 读数 260 会发布为 26.0。' });
+  }
+
+  /* OPC UA */
+  if (def.role === 'opcserver') {
+    G.push({ title: '地址空间节点', html: cfgTable('nodes', [
+      { k: 'id', label: 'NodeId' }, { k: 'name', label: '名称' }, { k: 'type', label: '类型' },
+      { k: 'val', label: '初值' }, { k: 'unit', label: '单位' }, { k: 'reg', label: '绑定寄存器' }
+    ], d.state.nodes || d.cfg.nodes || []), help: '绑定寄存器后，节点值随传感器实时变化；寄存器留空则用初值。' });
+  }
+  if (def.role === 'opcclient') {
+    G.push({ title: 'OPC UA 订阅', fields: [
+      { label: '已订阅节点', type: 'static', get: () => (d.state.opcSubs || []).map(s => s.id).join(', ') || '（无）' },
+      { label: '订阅周期', type: 'static', get: () => ((d.state.opcSubs || [])[0] || {}).every + ' ms' || '—' }
+    ] });
+  }
+
+  /* LoRaWAN */
+  if (def.role === 'loranode') {
+    const l = d.cfg.lora;
+    G.push({ title: 'LoRaWAN 链路', fields: [
+      sel('扩频因子 SF', l, 'sf', [7, 8, 9, 10, 11, 12], { help: 'SF 越大覆盖越远，空中时间越长' }),
+      sel('带宽 BW kHz', l, 'bw', [125, 250, 500]),
+      num('上报周期 ms', l, 'period', { min: 200, step: 100 }),
+      num('占空比上限 %', l, 'dutyLimit', { min: 0.1, step: 0.1 }),
+      { label: '入网状态', type: 'static', get: () => (l.joined ? '已入网 · ' + l.devAddr : '未入网（控制台 join）') },
+      { label: '帧计数 FCnt', type: 'static', get: () => String(l.fcnt || 0) }
+    ] });
+  }
+  if (def.role === 'loragw') {
+    G.push({ title: '网关设置', fields: [
+      txt('网关 ID', d.cfg, 'gwId'), num('中心频率 MHz', d.cfg, 'freq', { step: 0.1 })
+    ] });
+  }
+
+  /* NB-IoT */
+  if (def.role === 'nbiotnode') {
+    const n = d.cfg.nbiot;
+    G.push({ title: 'NB-IoT 链路属性', fields: [
+      sel('频段', n, 'band', [[3, 'B3 · 1800MHz'], [5, 'B5 · 850MHz'], [8, 'B8 · 900MHz（国内常用）']]),
+      num('RSRP dBm', n, 'rsrp', { min: -140, max: -40, help: '<-110 为弱覆盖，速率会下降' }),
+      num('SINR dB', n, 'sinr', { min: -10, max: 20, step: 0.1 }),
+      num('上报周期 ms', n, 'period', { min: 500, step: 100 }),
+      { label: '功耗状态', type: 'static', get: () => n.state + (n.attached ? ' · 已附着 ' + (n.ip || '') : ' · 未入网') }
+    ] });
+  }
+
+  /* CoAP */
+  if (def.role === 'coapclient') {
+    G.push({ title: 'CoAP 客户端', fields: [
+      txt('默认资源路径', d.cfg.coap, 'path'),
+      num('观察周期 ms', d.cfg.coap, 'period', { min: 500, step: 100 }),
+      { label: '已观察资源', type: 'static', get: () => (d.state.coapObs || []).map(x => x.path).join(', ') || '（无）' }
+    ] });
+  }
+  if (def.role === 'coapserver') {
+    G.push({ title: 'CoAP 资源表', html: cfgTable('resources', [
+      { k: 'path', label: '路径' }, { k: 'val', label: '当前值' }, { k: 'unit', label: '单位' },
+      { k: 'method', label: '方法' }, { k: 'reg', label: '绑定寄存器' }
+    ], d.state.res || d.cfg.resources || []) });
+  }
+
+  /* BACnet */
+  if (def.role === 'bacnetdev' || def.role === 'bacnetclient') {
+    G.push({ title: 'BACnet 对象表', html: cfgTable('objects', [
+      { k: 'id', label: '对象 ID' }, { k: 'name', label: '名称' }, { k: 'type', label: '类型' },
+      { k: 'val', label: '当前值' }, { k: 'unit', label: '单位' }, { k: 'ro', label: '只读(1/0)' }
+    ], d.state.objs || d.cfg.objects || []), help: 'AI/BI 只读，AV/BV 可写；RO 填 1 表示只读。' });
+  }
+
+  /* 页面 */
+  if (d.type === 'dash' || d.type === 'hmi') {
+    G.push({ title: '页面设置', fields: [
+      txt('页面标题', d.cfg.page, 'title'),
+      { label: '组件数量', type: 'static', get: () => (d.cfg.page.widgets || []).length + ' 个' }
+    ] });
+  }
+  return G;
+}
+
+function renderConfig() {
+  const d = active();
+  const body = document.getElementById('cfgBody');
+  const title = document.getElementById('cfgTitle');
+  if (!body) return;
+  if (!d) { title.textContent = '设备参数 · 请先选中设备'; body.innerHTML = '<div class="wk-empty">点画布上的设备，或从工作台顶部的设备标签切换。</div>'; return; }
+  title.textContent = '设备参数 · ' + d.name + '（' + DEFS[d.type].name + '）';
+  cfgScroll = body.scrollTop;
+  const groups = cfgSchema(d);
+  body.innerHTML = groups.map(g =>
+    '<section class="cfg-group"><h4>' + esc(g.title) + '</h4>' +
+    (g.fields ? '<div class="cfg-grid">' + g.fields.map(f => f.type === 'static'
+      ? '<div class="cfg-f"><label>' + esc(f.label) + '</label><div class="cfg-static">' + esc(f.get()) + '</div></div>'
+      : cfgField(f)).join('') + '</div>' : '') +
+    (g.html || '') + (g.help ? '<p class="cfg-help">' + esc(g.help) + '</p>' : '') + '</section>'
+  ).join('') +
+  '<section class="cfg-group"><h4>快捷操作</h4><div class="cfg-actions">' +
+  '<button class="btn" id="cfgViewPkts">查看本设备报文</button>' +
+  '<button class="btn" id="cfgConsole">打开设备控制台</button>' +
+  '<button class="btn" id="cfgShowSignal">查看实时信号</button>' +
+  '</div><p class="cfg-help">参数改动立即生效并写入工程；控制台命令与这里双向同步。</p></section>';
+  body.scrollTop = cfgScroll;
+  document.getElementById('cfgViewPkts').onclick = () => {
+    document.getElementById('pktFilter').value = 'dev'; pktFilter = 'dev';
+    openWorkbench('packets');
+  };
+  document.getElementById('cfgConsole').onclick = () => openWorkbench('console');
+  document.getElementById('cfgShowSignal').onclick = () => {
+    const t = document.getElementById('screen'); if (!t) return;
+    openWorkbench('console'); runCmd('show signal'); runCmd('show wiring');
+  };
+  bindCfgEvents(d);
+}
+function bindCfgEvents(d) {
+  const body = document.getElementById('cfgBody');
+  body.querySelectorAll('[data-k]').forEach(el => {
+    el.onchange = () => {
+      const f = cfgSchema(d).flatMap(g => g.fields || []).find(x => x.k === el.dataset.k);
+      if (!f || !f.set) return;
+      f.set(el.type === 'checkbox' ? el.checked : el.value);
+      applyCfgChange(d);
+    };
+  });
+  body.querySelectorAll('[data-tbl]').forEach(el => {
+    el.onchange = () => {
+      const key = el.dataset.tbl, i = Number(el.dataset.i), col = el.dataset.col;
+      const arr = cfgRows(d, key);
+      if (arr && arr[i]) {
+        arr[i][col] = /^(val|th|scale|qos|every|reg|slave|ro)$/.test(col) ? Number(el.value) : el.value;
+        applyCfgChange(d);
+      }
+    };
+  });
+  body.querySelectorAll('.cfg-del').forEach(btn => {
+    btn.onclick = () => {
+      const arr = cfgRows(d, btn.dataset.tbl); if (arr) arr.splice(Number(btn.dataset.i), 1);
+      applyCfgChange(d); renderConfig();
+    };
+  });
+  body.querySelectorAll('.cfg-add').forEach(btn => {
+    btn.onclick = () => {
+      const arr = cfgRows(d, btn.dataset.tbl); if (!arr) return;
+      const defaults = {
+        rules: { name: 'R' + (arr.length + 1), src: 'topic/#', op: '>', th: 0, action: 'pub', topic: 'alarm', payload: 'ALERT' },
+        maps: { slave: 1, reg: 40001, topic: 'device/value', scale: 1, qos: 0, every: 2000 },
+        nodes: { id: 'ns=1;i=' + (arr.length + 1), name: 'NewNode', type: 'Double', val: 0, unit: '', reg: null },
+        resources: { path: '/s/new', val: 0, unit: '', method: 'GET', reg: null },
+        objects: { id: 'AV:' + (arr.length + 1), name: 'NewObject', type: 'AV', val: 0, unit: '', ro: 0 }
+      };
+      arr.push(Object.assign({}, defaults[btn.dataset.tbl] || {}));
+      applyCfgChange(d); renderConfig();
+    };
+  });
+}
+function cfgRows(d, key) {
+  if (key === 'rules') { d.cfg.rules = d.cfg.rules || []; return d.cfg.rules; }
+  if (key === 'maps') { d.cfg.maps = d.cfg.maps || []; return d.cfg.maps; }
+  if (key === 'nodes') { d.state.nodes = d.state.nodes || (d.cfg.nodes || []).map(x => Object.assign({}, x)); return d.state.nodes; }
+  if (key === 'resources') { d.state.res = d.state.res || (d.cfg.resources || []).map(x => Object.assign({}, x)); return d.state.res; }
+  if (key === 'objects') { d.state.objs = d.state.objs || (d.cfg.objects || []).map(x => Object.assign({}, x)); return d.state.objs; }
+  return null;
+}
+function applyCfgChange(d) {
+  if (typeof updateAnalogChannels === 'function') updateAnalogChannels(false);
+  if (typeof refreshCardsSoft === 'function') refreshCardsSoft();
+  if (typeof drawWires === 'function') drawWires();
+  if (typeof save === 'function') save();
 }
 
 /* =========================================================================
@@ -5843,14 +6333,14 @@ function updateLabTag() {
 
 /* ---------------- 持久化 ---------------- */
 function projectText() {
-  const lines = ['@project NE_IOTSIM v1.0'];
+  const lines = ['@project NE_IOTSIM v1.1'];
   for (const d of S.devices) lines.push(['D', d.id, d.type, d.name, d.x, d.y,
     JSON.stringify(d.cfg), JSON.stringify(d.regs), JSON.stringify(d.coils)].join('|'));
   for (const w of S.wires) lines.push(['W', w.id, w.a.d, w.a.p, w.b.d, w.b.p].join('|'));
   for (const n of S.notes) lines.push(['N', n.id, n.x, n.y, n.text].join('|'));
   lines.push('@end');
   lines.push(JSON.stringify({
-    app: 'NE_IOTSIM', ver: '1.0.0', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
+    app: 'NE_IOTSIM', ver: '1.1.0', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
     lab: S.lab, labName: S.labName, view: S.view
   }));
   return lines.join('\n');
@@ -5907,7 +6397,7 @@ function showHelp() {
     '<h2>使用帮助</h2><button class="btn" id="modalClose">关闭</button></div><div class="mb">' +
     '<div class="kv"><b>三步上手</b><ol>' +
     '<li>左侧设备库先点<b>分类名</b>展开，再点设备加入画布；搜索框可按名称/型号过滤；再点分类名收起。手机上分类左右排列，展开后横向滑动选择。</li>' +
-    '<li>双击设备打开「设备控制台」，输入 <code>poll 1 40001 2</code> 发起轮询。</li>' +
+    '<li>双击设备打开「设备参数」面板（量程 / 幅度 / 周期 / 地址 / Topic 都能改）；切到「设备控制台」输入 <code>poll 1 40001 2</code> 发起轮询。</li>' +
     '<li>切到「报文监视器」看逐字节解析，切到「数据看板」看实时曲线。</li></ol></div>' +
     '<div class="kv"><b>端口与颜色</b><p>RS485 已合并成一个「485」端口，框内 A / B 两个小框分别接线；ETH 是以太网口。' +
     '<span style="color:#f85149">红＝+24V</span>、灰＝GND、' +
@@ -5917,6 +6407,10 @@ function showHelp() {
     '<b>三线制 0–10V：</b>传感器 +24V / GND 供电，VOUT → AI+，AI- 与 GND 共地。控制台 <code>show signal</code> 看换算，<code>fault break</code> 注入断线。</p></div>' +
     '<div class="kv"><b>执行与模拟量输出</b><p>「模拟量输出模块」是 Modbus RTU 从站：AO1 输出 4–20mA，AO2 输出 0–10V。' +
     '双击它输入 <code>set out 1 60</code>（或 <code>reg 40001=60</code>）后，AO1 输出 13.6mA；把 AO+ / AO- 接到采集从站 AI+ / AI- 就形成闭环。</p></div>' +
+    '<div class="kv"><b>设备参数面板与连线</b><p>双击设备打开「设备参数」页：传感器可改基准值、变化幅度、周期、量程和单位；从站改地址 / 波特率 / 校验；' +
+    'MQTT 改 Topic / 上报周期 / QoS；规则、网关映射、OPC 节点、CoAP 资源、BACnet 对象都能直接增删行。改动立即生效并写入工程，' +
+    '控制台命令与面板双向同步。悬停连线看两端设备与端口；单击选中、拖动端点改接、右键删除，选中后点中间 × 或按 Del 也可删。' +
+    '报文监视器可切「仅当前设备收发」看主从站配合。</p></div>' +
     '<div class="kv"><b>MQTT 四步走</b><p>把节点 / 看板的 ETH 口经交换机接到 Broker；双击节点 <code>connect</code> 建连；' +
     '<code>sub factory/+/temp qos 1</code> 订阅；<code>pub factory/line1/temp 26.5 -q 1 -r</code> 发布。' +
     '报文监视器可切「仅 MQTT」，看 CONNECT/CONNACK、PUBLISH 与 QoS 握手帧的固定头 / 主题 / 载荷解析。' +
@@ -5943,7 +6437,7 @@ function showAbout() {
   openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
     '<h2>关于</h2><button class="btn" id="modalClose">关闭</button></div><div class="mb about">' +
     '<svg class="about-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
-    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.0 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
+    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.1 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
     '<p>单文件、零安装、完全离线的物联网教学仿真器。独立项目，不与其他沙盘互通，也不联网、不采集真实数据。</p>' +
     '<p>当前版本：Modbus RTU/TCP、MQTT 3.1.1、OPC UA、LoRaWAN、NB-IoT 链路、CoAP、BACnet/IP、Modbus→MQTT 网关转换、十六进制报文手工注入；标准信号与模拟量输出、规则引擎、可视化页面编辑与独立 HTML 导出；23 个实验。</p>' +
     '<p class="hint">教学模拟器，不是真实协议栈。不联网、不采集数据。Copyright © 2026 新易科技工作室 NewE · MIT License</p>' +
@@ -5981,6 +6475,15 @@ function bindUI() {
   document.querySelectorAll('.spd').forEach(b => b.onclick = () => { S.sim.speed = Number(b.dataset.spd); syncClock(); });
   document.getElementById('pktClear').onclick = () => { S.packets = []; S.activePkt = null; renderPackets(); renderPktDetail(); };
   document.getElementById('dashRefresh').onclick = renderDashCharts;
+  const cfgReset = document.getElementById('cfgReset');
+  if (cfgReset) cfgReset.onclick = () => {
+    const d = active(); if (!d) return toast('请先选中设备');
+    if (!confirm('恢复「' + d.name + '」的出厂参数？当前配置会被覆盖。')) return;
+    d.cfg = clone(DEFS[d.type].cfg); d.regs = clone(DEFS[d.type].regs || {});
+    d.coils = clone(DEFS[d.type].coils || {});
+    d.state.nodes = null; d.state.res = null; d.state.objs = null;
+    applyCfgChange(d); renderConfig(); toast('已恢复默认参数');
+  };
   document.getElementById('btnPageEdit').onclick = () => {
     if (!S.activeDev) { toast('请先点选看板 / 可视化终端'); return; }
     openPageEditor();

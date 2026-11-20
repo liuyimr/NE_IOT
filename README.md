@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://liuyimr.github.io/NE_IOT/"><img src="https://img.shields.io/badge/在线演示-GitHub%20Pages-2f81f7?style=flat-square" alt="Live Demo"></a>
-  <a href="https://github.com/liuyimr/NE_IOT/releases"><img src="https://img.shields.io/badge/版本-v1.0-green?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/liuyimr/NE_IOT/releases"><img src="https://img.shields.io/badge/版本-v1.1-green?style=flat-square" alt="Version"></a>
   <img src="https://img.shields.io/badge/单文件-离线可用-orange?style=flat-square" alt="Single File">
   <img src="https://img.shields.io/badge/协议-10%20种-blueviolet?style=flat-square" alt="Protocols">
   <img src="https://img.shields.io/badge/实验-23%20个-blue?style=flat-square" alt="Labs">
@@ -38,10 +38,12 @@
 |---|---|
 | **单文件交付** | 一个 ~350 KB 的 HTML，自带全部 CSS/JS/图标，拷到 U 盘就能用 |
 | **10 类协议/信号** | Modbus RTU/TCP、MQTT、OPC UA、LoRaWAN、NB-IoT、CoAP、BACnet/IP、标准信号、模拟量输出、网关转换 |
-| **报文逐字节解析** | 十六进制与字段双向高亮；QoS 握手、CRC、MBAP、Uri-Path、BACnet 对象 ID 一眼看清 |
+| **报文监视器** | 逐字节解析，按协议 / 按当前设备过滤，主从站收发一目了然 |
 | **23 个实训实验** | 从接线到排错，含预置故障：断线、波特率不匹配、Topic 写错、占空比超限 |
 | **故障注入与手工报文注入** | `crc bad on` / `fault break` / `drop`，或直接构造十六进制帧看解析变化 |
 | **可视化页面编辑器** | 数值卡 / 仪表 / 曲线 / 状态灯，绑定任意数据系列，一键导出独立 HTML 看板 |
+| **每设备参数面板** | 双击设备直接改量程 / 幅度 / 周期 / 地址 / Topic，规则表、映射表可视化增删，与命令双向同步 |
+| **连线三点交互** | 悬停看两端设备端口，单击选中，拖动改接，右键 / × / Del 删除 |
 | **手机 / 平板可用** | 横向设备库、手势缩放、响应式工作台，课堂上用手机也能演示 |
 | **类 VRP 命令行** | 简洁命令，`help` 随时查，Tab 自动补全 |
 
