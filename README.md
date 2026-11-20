@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://liuyimr.github.io/NE_IOT/"><img src="https://img.shields.io/badge/在线演示-GitHub%20Pages-2f81f7?style=flat-square" alt="Live Demo"></a>
-  <a href="https://github.com/liuyimr/NE_IOT/releases"><img src="https://img.shields.io/badge/版本-v1.3-green?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/liuyimr/NE_IOT/releases"><img src="https://img.shields.io/badge/版本-v1.4-green?style=flat-square" alt="Version"></a>
   <img src="https://img.shields.io/badge/单文件-离线可用-orange?style=flat-square" alt="Single File">
   <img src="https://img.shields.io/badge/协议-10%20种-blueviolet?style=flat-square" alt="Protocols">
   <img src="https://img.shields.io/badge/实验-23%20个-blue?style=flat-square" alt="Labs">
@@ -37,7 +37,7 @@
 | 特性 | 说明 |
 |---|---|
 | **单文件交付** | 一个 ~350 KB 的 HTML，自带全部 CSS/JS/图标，拷到 U 盘就能用 |
-| **10 类协议/信号** | Modbus RTU/TCP、MQTT、OPC UA、LoRaWAN、NB-IoT、CoAP、BACnet/IP、标准信号、模拟量输出、网关转换 |
+| **11 类协议/信号** | Modbus RTU/TCP、MQTT、OPC UA、LoRaWAN、NB-IoT、CoAP、BACnet/IP、标准信号、模拟量输出、**开关量 DI/DO**、网关转换 |
 | **报文监视器** | 逐字节解析，按协议 / 按当前设备过滤，主从站收发一目了然 |
 | **23 个实训实验** | 从接线到排错，含预置故障：断线、波特率不匹配、Topic 写错、占空比超限 |
 | **故障注入与手工报文注入** | `crc bad on` / `fault break` / `drop`，或直接构造十六进制帧看解析变化 |
@@ -103,7 +103,7 @@
 
 ## 设备与实验
 
-**30+ 设备类型**：传感器/变送器、继电器、AO 模块、Modbus 主站/PLC、边缘网关、交换机、MQTT Broker、规则引擎、OPC UA 服务器/客户端、LoRa 节点/网关/服务器、NB-IoT 节点/基站、CoAP 服务器/节点、BACnet 设备/客户端、Web 看板、可视化终端……
+**30+ 设备类型**：传感器/变送器、继电器、AO 模块、**开关量采集/输出模块、手动开关、指示灯**、Modbus 主站/PLC、边缘网关、交换机、MQTT Broker、规则引擎、OPC UA 服务器/客户端、LoRa 节点/网关/服务器、NB-IoT 节点/基站、CoAP 服务器/节点、BACnet 设备/客户端、Web 看板、可视化终端……
 
 **23 个实验**，分组覆盖：标准信号接入、Modbus 串口、工业以太网、执行输出、MQTT 平台、排错实训、OPC UA、LPWAN 与网关、报文注入、Web 与楼宇协议。
 
