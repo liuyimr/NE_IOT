@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   NE_IOTSIM —— 新易物联网沙盘（单文件离线版）
-  版本：v1.4.1 (读数诊断与轮询管理修正版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
+  版本：v1.4.2 (视口放置与实验说明修正版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
   Copyright (c) 2026 新易科技工作室 NewE
   作者：Liuyi  <yimr@sohu.com>
   协议：MIT License
@@ -1735,6 +1735,9 @@ html[data-theme="light"] .cfg-reg-write input{background:#f6f8fa}
   padding:0 4px;border-radius:3px;letter-spacing:.3px;white-space:nowrap;
 }
 .pkt.sel .hexline{background:rgba(47,129,247,.2)}
+/* 实验弹窗：预期结果单独一条绿色提示 */
+.kv-expect{border-left:2px solid #3fb950;padding-left:10px;background:rgba(63,185,80,.07);border-radius:0 5px 5px 0}
+.kv-expect b{color:#56d364}
 /* 主站轮询任务行 */
 .cfg-poll{display:flex;flex-direction:column;gap:5px}
 .cfg-poll-row{
@@ -2363,14 +2366,21 @@ function toast(msg) {
 function addDevice(type, x, y, opt) {
   const def = DEFS[type];
   if (!def) return null;
+  /* 没指定坐标时，落在当前可视区域内（画布平移 / 缩放后也能看见） */
+  let px = x, py = y;
+  if (px == null || py == null) {
+    const sp = (typeof viewportSpawn === 'function') ? viewportSpawn() : { x: 140, y: 110 };
+    if (px == null) px = sp.x;
+    if (py == null) py = sp.y;
+  }
   const d = {
     id: uid('d'),
     type,
     name: (opt && opt.name) ||
       ((def.short || def.name.replace(/传感器|模块|主站|交换机|网关|通用 /g, '')) +
         (S.devices.filter(x => x.type === type).length + 1)),
-    x: x == null ? 140 + (S.seq % 5) * 200 : x,
-    y: y == null ? 110 + (S.seq % 4) * 120 : y,
+    x: px,
+    y: py,
     cfg: clone(def.cfg), regs: clone(def.regs || {}), coils: clone(def.coils || {}),
     state: { lastRx: 0, lastTx: 0, err: 0, ok: 0, val: null },
     history: []
@@ -3226,6 +3236,59 @@ function devValue(d) {
   return { html: '<span class="u">' + (ks.length ? '寄存器 ' + ks.length : '待机') + '</span>', txt: '' };
 }
 function cardWidth() { return 168; }
+/* 在当前可视区域里找一个不与已有设备重叠的位置：新设备一定出现在眼前。
+   从视口中心向外按栅格扩散，找不到空位就退回左上角。 */
+function viewportSpawn() {
+  const r = stage.getBoundingClientRect();
+  const k = S.view.k || 1;
+  const cw = cardWidth() + 8, ch = 140 + 12;
+  const left = (-S.view.x) / k + 12;
+  const top = (-S.view.y) / k + 12;
+  const right = (r.width - S.view.x) / k - cw;
+  const bottom = (r.height - S.view.y) / k - ch;
+  const cx = (r.width / 2 - S.view.x) / k, cy = (r.height / 2 - S.view.y) / k;
+  const c0 = Math.round((cx - left) / cw), r0 = Math.round((cy - top) / ch);
+  const order = [];
+  for (let rad = 0; rad <= 6; rad++) {
+    for (let dc = -rad; dc <= rad; dc++) {
+      for (let dr = -rad; dr <= rad; dr++) {
+        if (Math.max(Math.abs(dc), Math.abs(dr)) === rad) order.push([dc, dr]);
+      }
+    }
+  }
+  for (const [dc, dr] of order) {
+    const x = left + (c0 + dc) * cw, y = top + (r0 + dr) * ch;
+    if (x < left - 1 || y < top - 1) continue;
+    if (right >= left && (x > right + 1 || y > bottom + 1)) continue;
+    if (!S.devices.some(d => Math.abs(d.x - x) < cw - 6 && Math.abs(d.y - y) < ch - 6)) return { x, y };
+  }
+  /* 第二轮不限视口边界：连续添加时按网格自然延伸，保证不重叠 */
+  for (let rad = 0; rad <= 20; rad++) {
+    for (let dc = -rad; dc <= rad; dc++) {
+      for (let dr = -rad; dr <= rad; dr++) {
+        if (Math.max(Math.abs(dc), Math.abs(dr)) !== rad) continue;
+        const x = left + (c0 + dc) * cw, y = top + (r0 + dr) * ch;
+        if (x < left - 1 || y < top - 1) continue;
+        if (!S.devices.some(d => Math.abs(d.x - x) < cw - 6 && Math.abs(d.y - y) < ch - 6)) return { x, y };
+      }
+    }
+  }
+  return { x: left, y: top };
+}
+/* 把设备带进视野：只做最小平移，尽量不惊动已经摆好的设备 */
+function revealDevice(d) {
+  if (!d) return;
+  const r = stage.getBoundingClientRect();
+  const k = S.view.k || 1;
+  const cw = cardWidth(), ch = 140, pad = 8;
+  const w = cw * k, h = ch * k;
+  let sx = d.x * k + S.view.x, sy = d.y * k + S.view.y, moved = false;
+  if (sx < pad) { S.view.x += pad - sx; moved = true; }
+  else if (sx + w > r.width - pad) { S.view.x -= (sx + w) - (r.width - pad); moved = true; }
+  if (sy < pad) { S.view.y += pad - sy; moved = true; }
+  else if (sy + h > r.height - pad) { S.view.y -= (sy + h) - (r.height - pad); moved = true; }
+  if (moved) applyView();
+}
 function renderCard(d) {
   const def = DEFS[d.type];
   const val = devValue(d);
@@ -3791,13 +3854,9 @@ document.getElementById('palette').addEventListener('click', e => {
     return;
   }
   const b = e.target.closest('.pal'); if (!b) return;
-  const r = stage.getBoundingClientRect();
-  const n = S.devices.length;
-  const gx = 50 + (n % 5) * 195, gy = 50 + Math.floor(n / 5) * 160;
-  const x = Math.round((gx - S.view.x) / S.view.k);
-  const y = Math.round((gy - S.view.y) / S.view.k);
-  const d = addDevice(b.dataset.t, x, y);
-  if (d) { S.activeDev = d.id; renderAll(); save(); }
+  /* 由 addDevice 统一在可视区域内选位；加完再确保它真的在眼前 */
+  const d = addDevice(b.dataset.t);
+  if (d) { S.activeDev = d.id; renderAll(); revealDevice(d); save(); }
 });
 
 /* =========================================================================
@@ -4206,7 +4265,7 @@ function runCmd(line) {
     issue(d, j, j.via); openWorkbench('packets'); return;
   }
   if (cmd === 'write' || cmd === 'coil') {
-    if (a.length < 4) return termPrint('用法：write <从站> <地址> <值>', 'err');
+    if (a.length < 4) return termPrint('用法：write <从站> <地址> <值> [tcp]', 'err');
     const n = Number(a[2]) || 40001;
     const j = {
       slave: Number(a[1]), func: cmd === 'write' ? 6 : 5,
@@ -4214,7 +4273,9 @@ function runCmd(line) {
       val: Number(a[3]), every: 0
     };
     if (cmd === 'coil') j.val = a[3] !== '0' ? 1 : 0;
-    issue(d, j, 'rtu'); openWorkbench('packets'); return;
+    const viaTcp = a.includes('tcp');
+    issue(d, j, viaTcp ? 'tcp' : 'rtu');
+    openWorkbench('packets'); return;
   }
   termPrint('未知命令：' + cmd + '（输入 help 查看可用命令）', 'err');
 }
@@ -4735,6 +4796,7 @@ function cfgSchema(d) {
         '<input id="pollStart" placeholder="起始 40001" inputmode="numeric" />' +
         '<input id="pollQty" placeholder="数量 1" inputmode="numeric" />' +
         '<input id="pollEvery" placeholder="周期 ms 1500" inputmode="numeric" />' +
+        '<select id="pollVia" title="链路：RS485 用 RTU，以太网用 TCP"><option value="rtu">RTU（485）</option><option value="tcp">TCP（以太网）</option></select>' +
         '<button class="btn sm" id="pollAdd">添加轮询</button>' +
         (polls.length ? '<button class="btn sm danger" id="pollClearAll">全部清空</button>' : '') +
         '</div>',
@@ -4857,12 +4919,13 @@ function bindCfgRegs(d) {
     const startRaw = Number((document.getElementById('pollStart') || {}).value) || 40001;
     const qty = Number((document.getElementById('pollQty') || {}).value) || 1;
     const every = Number((document.getElementById('pollEvery') || {}).value) || 1500;
+    const via = (document.getElementById('pollVia') || {}).value || 'rtu';
     if (!Number.isFinite(slave) || slave < 1 || slave > 247) return toast('从站地址应为 1–247');
     d.cfg.polls = d.cfg.polls || [];
     d.cfg.polls.push({
       slave, start: startRaw >= 40001 ? startRaw - 40001 : startRaw,
       qty: Math.max(1, Math.min(125, qty)), func: 3,
-      every: Math.max(200, every), via: 'rtu'
+      every: Math.max(200, every), via
     });
     if (typeof S !== 'undefined' && S.sim && !S.sim.running) { S.sim.running = true; if (typeof syncClock === 'function') syncClock(); }
     applyCfgChange(d); renderConfig(); toast('已添加轮询：从站 ' + slave);
@@ -6836,6 +6899,7 @@ const LABS = [
   {
     id: 'rtu-read', group: '② Modbus 串口', diff: 'base', name: 'Modbus RTU 读温湿度',
     goal: '让主站通过 RS485 总线读到温湿度传感器的寄存器 40001（温度×10）与 40002（湿度×10）。',
+    expect: '报文监视器出现 TX 01 03 00 00 00 02 + CRC 与 RX 应答帧；数据看板出现温度曲线并随仿真变化。',
     hint: [
       '双击「Modbus 主站」，在控制台输入：poll 1 40001 2 every 1500',
       '打开「报文监视器」，看 TX 帧：01 03 00 00 00 02 CRC；点字节看字段解析。',
@@ -6853,8 +6917,9 @@ const LABS = [
   {
     id: 'tcp-read', group: '③ 工业以太网', diff: 'base', name: 'Modbus TCP 读寄存器',
     goal: '用 Modbus TCP（502）经由交换机读取通用 PLC 的保持寄存器，理解 MBAP 头与 RTU 帧的差异。',
+    expect: 'TX 帧以事务 ID / 协议 ID / 长度 / 单元 ID 四段开头且没有 CRC；报文详情「寄存器值」显示 100 / 200。',
     hint: [
-      '双击主站，控制台输入：poll 4 40001 2 every 1500 via tcp',
+      '双击主站，控制台输入：poll 4 40001 2 every 1500 tcp',
       '在报文监视器里对比 TCP 帧的「事务 ID / 协议 ID / 长度 / 单元 ID」四段 MBAP 头。',
       '同一条功能码 03，TCP 帧没有 CRC，改用 MBAP 长度字段。'
     ],
@@ -6871,6 +6936,7 @@ const LABS = [
   {
     id: 'signal-4-20', group: '① 标准信号接入', diff: 'base', name: '4–20mA 两线制温度采集',
     goal: '用 24V 电源、温度变送器和通用 AI 模块搭出两线制电流回路，把温度变成 4–20mA，再由主站从 AI 模块寄存器 40001 读回。',
+    expect: '变送器 show signal 显示 4–20mA 随温度变化；AI 模块 40001 与温度一致；主站 poll 5 能读回同一个值。',
     hint: [
       '按顺序接线：电源 +24V → 变送器 “+”；变送器 “-” → AI1+；AI1- → 电源 GND。',
       '再给模块供电：电源 +24V → 模块 PWR；模块 GND → 电源 GND（黄褐线是电流回路，灰线是 GND）。',
@@ -6891,6 +6957,7 @@ const LABS = [
   {
     id: 'signal-0-10', group: '① 标准信号接入', diff: 'base', name: '0–10V 光照度采集',
     goal: '三线制传感器需要独立供电和共地：+24V / GND 供电，VOUT 输出 0–10V，AI- 与传感器 GND 共地。',
+    expect: 'AI2 通道显示 0–10V 电压与换算后的照度；数据看板同时有电流回路与电压回路两条曲线。',
     hint: [
       '电源部分已接好：+24V → 传感器 +24V，GND → 传感器 GND，模块 PWR/GND 也已接好。',
       '请补两根线：传感器 VOUT → AI2+，AI2- → 传感器 GND（或电源 GND）。',
@@ -6913,6 +6980,7 @@ const LABS = [
   {
     id: 'signal-break', group: '⑥ 排错实训', diff: 'bug', name: '断线了：AI 读数为 0',
     goal: '现象：主站能读到 AI 寄存器，但值一直是 0，变送器输出也不是 4–20mA。找出回路故障并恢复。',
+    expect: 'show signal 显示电流低于 3.6mA 并标红、AI 读数异常；fault none 后恢复到 4mA 以上，读数回到正常量程。',
     hint: [
       '双击变送器 TT-01，输入 show signal —— 看断线提示与输出电流。',
       '4–20mA 两线制规约：电流低于 3.6mA 即判为断线，正常应 4~20mA。',
@@ -6936,6 +7004,7 @@ const LABS = [
   {
     id: 'ao-to-ai', group: '④ 执行与输出', diff: 'base', name: '模拟量输出驱动采集从站',
     goal: '让模拟量输出模块把 60% 设定值变成 4–20mA，接到采集从站的 AI1，再由主站读回 40001 验证闭环。',
+    expect: 'AO1 输出约 13.6mA；AI-01 的 AI1 显示 60%；主站读到 40001 = 60，闭环成立。',
     hint: [
       '双击 AO-01，输入 set out 1 60，再 show signal 查看 13.60mA 输出。',
       '接线：AO1+ → AI-01 的 AI1+；AO1- → AI1-；AO 与采集从站的 PWR / GND 都接回 24V 电源。',
@@ -6960,10 +7029,11 @@ const LABS = [
   {
     id: 'discrete-io', group: '④ 执行与输出', diff: 'base', name: '开关量输入输出闭环',
     goal: '开关的干接点接到 DI 模块，主站读寄存器看通断；再用 DO 模块驱动指示灯，完成 输入 → 采集 → 输出 → 执行 的完整闭环。',
+    expect: '点开关后 DI-01 从 0/4 变 1/4，寄存器 40001 同步为 1；勾选 DO1 时指示灯点亮（卡片出现黄色光点）。',
     hint: [
       '点「SW-01」卡片上的「闭合」按钮，DI-01 的通道从 0 变 1，寄存器 40001 同步变化。',
       '双击主站输入 poll 6 40001 4 every 1500，在报文监视器里看 DI 状态被读回。',
-      '双击「DO-01」勾选 DO1，指示灯立刻点亮；主站写线圈 1 也能控制它。',
+      '双击「DO-01」勾选 DO1，指示灯立刻点亮；也可以在主站控制台输入 coil 7 1 1 写线圈 1（TCP 则加 tcp）。',
       'COM 端要接在同一个公共端：SW / DI / DO / 指示灯 的 COM 已接好，可试着拆开看会发生什么。'
     ],
     build() {
@@ -6984,6 +7054,7 @@ const LABS = [
   {
     id: 'mqtt-connect', group: '⑤ MQTT 与平台', diff: 'base', name: 'Broker 连接与 Topic 规划',
     goal: '让 ESP32 节点经交换机连到 MQTT Broker，理解 CONNECT/CONNACK 握手与分层 Topic 的规划方法。',
+    expect: '报文监视器出现 CONNECT → CONNACK 两条帧；Broker 的 show clients 能看到 ESP32-01；看板曲线每 2 秒前进。',
     hint: [
       '双击 ESP32-01 输入 connect，看报文监视器里的 CONNECT → CONNACK 两条帧。',
       '双击 Broker-01 输入 show clients，看在线客户端与它的订阅。',
@@ -7003,8 +7074,9 @@ const LABS = [
   {
     id: 'mqtt-qos', group: '⑤ MQTT 与平台', diff: 'mid', name: 'QoS 0 / 1 / 2 握手对比',
     goal: '同一条 Topic 分别用 QoS 0、1、2 发布，从报文序列看出"最多一次 / 至少一次 / 恰好一次"的差别。',
+    expect: 'QoS0 只有 PUBLISH；QoS1 多一条 PUBACK；QoS2 出现 PUBREC / PUBREL / PUBCOMP 四条帧。',
     hint: [
-      '双击 ESP32-01：connect 后依次执行 pub factory/line1/temp 26.5 -q 0、pub ... -q 1、pub ... -q 2。',
+      '双击 ESP32-01：connect 后依次执行 pub factory/line1/temp 26.5 -q 0，再把末尾的 -q 0 换成 -q 1、-q 2 各发一次。',
       '报文监视器里 QoS0 只有 PUBLISH；QoS1 多一条 PUBACK；QoS2 有 PUBREC / PUBREL / PUBCOMP 四条。',
       '点任意帧看固定头、报文标识符、主题长度与载荷的逐字段解析。'
     ],
@@ -7022,6 +7094,7 @@ const LABS = [
   {
     id: 'mqtt-retain-lwt', group: '⑤ MQTT 与平台', diff: 'mid', name: 'Retain 保留消息与 LWT 遗嘱',
     goal: 'Retain 让后上线的值订阅者立刻拿到最后一条；LWT 让异常掉线时被 Broker 代发遗嘱。',
+    expect: '新订阅者 sub 后立刻收到 retained 的值；节点 drop 后 Broker 代发 offline 遗嘱帧。',
     hint: [
       'ESP32-01：connect → pub factory/status online -r，再双击 Broker-01 输入 show topics。',
       'ESP32-01 输入 will factory/status offline，然后 drop（异常掉线）——看 Broker 代发的遗嘱帧。',
@@ -7042,6 +7115,7 @@ const LABS = [
   {
     id: 'mqtt-wildcard', group: '⑤ MQTT 与平台', diff: 'base', name: '通配符订阅与多主题汇聚',
     goal: '用 factory/+/temp 一次订阅多条产线的温度，理解 +（单层）与 #（多层）的区别。',
+    expect: '一条 sub factory/+/temp 同时收到 line1、line2 两条数据；pub factory/line1/humidity 提示无匹配订阅者。',
     hint: [
       '双击 Dashboard 输入 sub factory/+/temp qos 1，再双击 Broker-01 输入 show subs。',
       '两个节点分别 pub factory/line1/temp 26.5 与 factory/line2/temp 31.2，看板出现两条曲线。',
@@ -7063,9 +7137,10 @@ const LABS = [
   {
     id: 'mqtt-rule', group: '⑤ MQTT 与平台', diff: 'mid', name: '规则告警：温度超限联动风机',
     goal: '从"看见数据"到"用数据做事"：Topic 温度超过 30℃ 时规则引擎发布告警并闭合继电器线圈。',
+    expect: 'pub 35 后规则日志出现命中记录，继电器线圈 1 变 1，alarm/temp 收到 HIGH。',
     hint: [
       '双击规则引擎输入 rule add factory/line1/temp > 30 pub alarm/temp HIGH。',
-      '再输入 rule coil factory/line1/temp > 30 relay 1 1（relay 是画布上继电器模块的名字）。',
+      '再输入 rule coil factory/line1/temp > 30 <继电器设备ID或名称> 1 1 —— 设备 ID 见卡片底部或配置抽屉标题。',
       '双击 ESP32-01：pub factory/line1/temp 35，报文监视器切「仅规则事件」看命中记录。'
     ],
     build() {
@@ -7083,6 +7158,7 @@ const LABS = [
   {
     id: 'mqtt-topic-bug', group: '⑥ 排错实训', diff: 'bug', name: 'Topic 写错：看板一直没数据',
     goal: '现象：节点在线、Broker 有转发，但看板没有曲线。找出订阅主题与发布主题的差异。',
+    expect: '对比 show subs 与 show topics 能看出层级不一致；改成发布端实际主题后看板立即出曲线。',
     hint: [
       '双击 Broker-01 输入 show subs，再看 show topics（若没有 Retain 就看报文监视器的 PUBLISH）。',
       '双击 ESP32-01 输入 show mqtt，看自动上报的 Topic 是什么。',
@@ -7107,6 +7183,7 @@ const LABS = [
   {
     id: 'opc-browse', group: '⑦ OPC UA', diff: 'base', name: 'OPC UA 地址空间浏览与读取',
     goal: '理解 OPC UA 的"对象 / 变量节点"模型：先 browse 看地址空间，再 read 一个节点的当前值与状态码。',
+    expect: 'browse 返回 3 个变量节点；read ns=1;i=1 返回温度值与 Good 状态码。',
     hint: [
       '双击 OPCUA-Client 输入 browse，看服务器返回 3 个变量节点。',
       '输入 read ns=1;i=1 读温度节点；报文监视器切「仅 OPC UA」看 Browse/Read 服务帧。',
@@ -7125,6 +7202,7 @@ const LABS = [
   {
     id: 'opc-sub', group: '⑦ OPC UA', diff: 'mid', name: 'OPC UA 订阅与数据变化推送',
     goal: '对比"轮询读取"与"订阅推送"：建订阅后服务器按周期主动发 PublishResponse，值自动进看板。',
+    expect: 'sub 后立刻收到一条 PublishResponse；运行时每秒一条数据变化帧，看板出现 opc:ns=1;i=1 曲线。',
     hint: [
       '双击 OPCUA-Client 输入 sub ns=1;i=1，看首帧 PublishResponse 立即推当前值。',
       '点顶栏「运行」，报文监视器里每 1 秒多一条数据变化帧；用 set period 1 1000 改周期。',
@@ -7143,6 +7221,7 @@ const LABS = [
   {
     id: 'lora-join', group: '⑧ LPWAN 与网关', diff: 'base', name: 'LoRa 节点入网与上行',
     goal: '走通 JoinRequest → JoinAccept → Uplink → 网关转发 → 服务器记录的完整 Class A 链路。',
+    expect: 'join 后收到 JoinAccept 并分配 DevAddr；uplink 后服务器 show devices 的帧计数 +1。',
     hint: [
       '双击 LoRa-Node 输入 join，看入网两帧与分配到的 DevAddr。',
       '输入 uplink 26.5 发包；看报文监视器里的 SF/BW、FCnt、RSSI/SNR 与 RX1/RX2 窗口说明。',
@@ -7161,6 +7240,7 @@ const LABS = [
   {
     id: 'lora-duty', group: '⑧ LPWAN 与网关', diff: 'bug', name: '占空比超限：包发不出去',
     goal: '现象：节点已入网但上报被抑制。SF12 在 125kHz 下空中时间很长，1 秒周期违反 1% 占空比。',
+    expect: 'SF12 时提示占空比超限、帧发不出去；set sf 7 与 set period 5000 后能正常上行。',
     hint: [
       '双击 LoRa-Node 输入 show lora，看空中时间（约 850ms）与占空比上限。',
       '输入 set sf 7，再 set period 5000 —— 空中时间降到约 22ms，占空比远低于 1%，帧才能发出。',
@@ -7181,6 +7261,7 @@ const LABS = [
   {
     id: 'gw-map', group: '⑧ LPWAN 与网关', diff: 'mid', name: 'Modbus → MQTT 协议转换（OT 到 IT）',
     goal: '把温湿度从站 40001（温度×10）经边缘网关映射为 MQTT Topic，对照看 RTU 请求/应答与 PUBLISH 三种帧。',
+    expect: '同一次采集出现 RTU 请求、RTU 应答、MQTT PUBLISH 三帧；Broker show topics 能看到映射出来的主题。',
     hint: [
       '双击 Edge-GW 输入 map add 1 40001 factory/line1/temp 0.1 0 2000。',
       '点「运行」，报文监视器里同一次采集会出现 RTU 请求 / RTU 应答 / MQTT PUBLISH，点帧看 note 中的换算过程。',
@@ -7206,6 +7287,7 @@ const LABS = [
   {
     id: 'inject-crc', group: '⑨ 报文注入', diff: 'base', name: '手工注入坏 CRC 帧',
     goal: '不靠故障开关，直接构造一帧并改字节，观察 CRC 校验与从站静默丢弃的规范行为。',
+    expect: '解析预览显示 CRC FAIL；注入后只有 TX 帧、没有应答——从站按规范静默丢弃。',
     hint: [
       '工作台切到「报文监视器」，点「手工注入」，选 Modbus RTU，用示例帧 01 03 00 00 00 02 C4 0B。',
       '把最后一个字节 0B 改成 0A，看解析预览里 CRC 变成 FAIL，再点「注入这一帧」。',
@@ -7223,6 +7305,7 @@ const LABS = [
   {
     id: 'inject-mqtt', group: '⑨ 报文注入', diff: 'mid', name: '手工注入 MQTT PUBLISH 帧',
     goal: '按 MQTT 固定头结构手工拼一帧 PUBLISH，交给 Broker 路由到匹配订阅者。',
+    expect: '已订阅端收到注入的 PUBLISH；把主题改成未订阅的名字后提示无匹配订阅者。',
     hint: [
       '工作台「手工注入」选 MQTT 3.1.1，示例帧是 Topic=factory/temp、载荷=26.5。',
       '先把 Dashboard 接进以太网并 sub factory/temp，再注入，看订阅端收到 PUBLISH。',
@@ -7241,6 +7324,7 @@ const LABS = [
   {
     id: 'coap-observe', group: '⑩ Web 与楼宇协议', diff: 'base', name: 'CoAP 资源读取与 Observe 订阅',
     goal: '理解 UDP/REST 风格的资源模型：GET 读 /s/temp，POST 写 /a/relay，Observe 订阅后服务器按周期推新值。',
+    expect: 'get /s/temp 返回 2.05 Content；observe 后每 5 秒一条通知；post /a/relay 1 返回 2.01 Created。',
     hint: [
       '双击 CoAP-Node 输入 get /s/temp，看 2.05 Content 响应与 Uri-Path 选项。',
       '输入 observe /s/temp，点「运行」，报文监视器每 5 秒多一条 Observe 通知。',
@@ -7258,6 +7342,7 @@ const LABS = [
   {
     id: 'bacnet-read', group: '⑩ Web 与楼宇协议', diff: 'base', name: 'BACnet/IP 对象属性读写',
     goal: '楼宇自动化的核心是"对象 + 属性"：先 browse 找对象，再 ReadProperty 读 AI:1，WriteProperty 写 AV:1。',
+    expect: 'browse 列出 AI:1 / AI:2 / AV:1；write AI:1 被拒绝（只读），write AV:1 24 后 read 能读回 24。',
     hint: [
       '双击 BACnet-Client 输入 browse，看 AI:1 / AI:2 / AV:1 三个对象。',
       '输入 read AI:1 读房间温度；AI 是只读对象，write AI:1 30 会被拒绝。',
@@ -7275,6 +7360,7 @@ const LABS = [
   {
     id: 'nbiot-psm', group: '⑧ LPWAN 与网关', diff: 'mid', name: 'NB-IoT 入网、上报与 PSM 深睡',
     goal: '用链路属性建模 NB-IoT：attach 入网看 RSRP/SINR，uplink 上报，sleep 进 PSM 后无法发包，wake 唤醒恢复。',
+    expect: 'attach 后分配 IP 并显示 RSRP/SINR；sleep 后 uplink 被拒绝，wake 后恢复；基站 show link 有终端记录。',
     hint: [
       '双击 NB-Node 输入 attach，看 AttachAccept 分配的 IP 与信号质量。',
       '输入 uplink 26.5 上报；再输入 sleep 进 PSM，此时 uplink 会被拒绝。',
@@ -7291,6 +7377,7 @@ const LABS = [
   {
     id: 'baud-bug', group: '⑥ 排错实训', diff: 'bug', name: '波特率不匹配：读不到数据',
     goal: '现象：主站轮询从站 1，报文监视器只有 TX 和 TIMEOUT，没有应答。找出根因并修复。',
+    expect: '两端波特率一致后 TIMEOUT 消失，出现正常 RX 应答帧，数据看板恢复曲线。',
     hint: [
       '先看报文监视器：TX 帧正常，RX 是 TIMEOUT，说明从站没有回应。',
       '双击温湿度传感器，show config 看它的 baud 是多少。',
@@ -7376,8 +7463,9 @@ document.getElementById('mask').addEventListener('click', e => {
     openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
       '<h2>' + esc(l.name) + '</h2><button class="btn" id="modalClose">开始实验</button></div>' +
       '<div class="mb"><div class="kv"><b>实验目标</b><p>' + esc(l.goal) + '</p></div>' +
+      (l.expect ? '<div class="kv kv-expect"><b>做完应该看到</b><p>' + esc(l.expect) + '</p></div>' : '') +
       '<div class="kv"><b>操作提示</b><ol>' + l.hint.map(h => '<li>' + esc(h) + '</li>').join('') + '</ol></div>' +
-      '<div class="kv"><b>说明</b><p>实验只加载拓扑，配置需要自己在控制台里完成；排错题预置了错误配置。</p></div></div>');
+      '<div class="kv"><b>说明</b><p>实验只加载拓扑，配置需要自己在控制台里完成；排错题预置了错误配置。卡住时选中设备输入 <code>diag</code> 看诊断。</p></div></div>');
     document.getElementById('modalClose').onclick = closeModal;
   }, 80);
 });
@@ -7390,7 +7478,7 @@ function updateLabTag() {
 
 /* ---------------- 持久化 ---------------- */
 function projectText() {
-  const lines = ['@project NE_IOTSIM v1.4.1'];
+  const lines = ['@project NE_IOTSIM v1.4.2'];
   for (const d of S.devices) lines.push(['D', d.id, d.type, d.name, d.x, d.y,
     JSON.stringify(d.cfg), JSON.stringify(d.regs), JSON.stringify(d.coils)].join('|'));
   for (const w of S.wires) lines.push(['W', w.id, w.a.d, w.a.p, w.b.d, w.b.p].join('|'));
@@ -7398,7 +7486,7 @@ function projectText() {
   lines.push('@end');
   /* 运行态历史不写进工程：曲线是仿真实时生成的，写进去会让文件膨胀且重载后混入旧数据 */
   lines.push(JSON.stringify({
-    app: 'NE_IOTSIM', ver: '1.4.1', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
+    app: 'NE_IOTSIM', ver: '1.4.2', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
     lab: S.lab, labName: S.labName, view: S.view
   }, (k, v) => (k === 'hist' || k === 'history' || k === 'varHist' || k === 'varLast' ? undefined : v)));
   return lines.join('\n');
@@ -7510,7 +7598,7 @@ function showAbout() {
   openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
     '<h2>关于</h2><button class="btn" id="modalClose">关闭</button></div><div class="mb about">' +
     '<svg class="about-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
-    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.4.1 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
+    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.4.2 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
     '<p>单文件、零安装、完全离线的物联网教学仿真器。独立项目，不与其他沙盘互通，也不联网、不采集真实数据。</p>' +
     '<p>当前版本：Modbus RTU/TCP、MQTT 3.1.1、OPC UA、LoRaWAN、NB-IoT 链路、CoAP、BACnet/IP、Modbus→MQTT 网关转换、十六进制报文手工注入；标准信号与模拟量输出、规则引擎、可视化页面编辑与独立 HTML 导出；23 个实验。</p>' +
     '<p class="hint">教学模拟器，不是真实协议栈。不联网、不采集数据。Copyright © 2026 新易科技工作室 NewE · MIT License</p>' +
@@ -7662,7 +7750,7 @@ function init() {
   syncClock(); bindUI(); termOpen(false);
   if (!restored) setTimeout(() => {
     openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
-      '<h2>新易物联网沙盘 v1.4.1</h2><button class="btn" id="modalClose">开始</button></div><div class="mb">' +
+      '<h2>新易物联网沙盘 v1.4.2</h2><button class="btn" id="modalClose">开始</button></div><div class="mb">' +
       '<p>已为你加载「Modbus RTU 读温湿度」实验拓扑。三步走：</p><ol>' +
       '<li>点顶栏「运行」启动仿真时钟；</li>' +
       '<li>双击画布上的 <b>Master-01</b>，输入 <code>poll 1 40001 2</code>；</li>' +

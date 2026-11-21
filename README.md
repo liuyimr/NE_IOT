@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://liuyimr.github.io/NE_IOT/"><img src="https://img.shields.io/badge/在线演示-GitHub%20Pages-2f81f7?style=flat-square" alt="Live Demo"></a>
-  <a href="https://github.com/liuyimr/NE_IOT/releases"><img src="https://img.shields.io/badge/版本-v1.4.1-green?style=flat-square" alt="Version"></a>
+  <a href="https://github.com/liuyimr/NE_IOT/releases"><img src="https://img.shields.io/badge/版本-v1.4.2-green?style=flat-square" alt="Version"></a>
   <img src="https://img.shields.io/badge/单文件-离线可用-orange?style=flat-square" alt="Single File">
   <img src="https://img.shields.io/badge/协议-10%20种-blueviolet?style=flat-square" alt="Protocols">
   <img src="https://img.shields.io/badge/实验-23%20个-blue?style=flat-square" alt="Labs">
