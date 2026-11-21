@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   NE_IOTSIM —— 新易物联网沙盘（单文件离线版）
-  版本：v1.4.2 (视口放置与实验说明修正版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
+  版本：v1.4.3 (TCP 地址与串口服务器版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
   Copyright (c) 2026 新易科技工作室 NewE
   作者：Liuyi  <yimr@sohu.com>
   协议：MIT License
@@ -1735,6 +1735,11 @@ html[data-theme="light"] .cfg-reg-write input{background:#f6f8fa}
   padding:0 4px;border-radius:3px;letter-spacing:.3px;white-space:nowrap;
 }
 .pkt.sel .hexline{background:rgba(47,129,247,.2)}
+/* 报文明细里的 IP:端口 */
+.pkt .ip{
+  font:10px var(--mono);color:#56d364;background:rgba(86,211,100,.1);
+  padding:0 4px;border-radius:3px;white-space:nowrap;
+}
 /* 实验弹窗：预期结果单独一条绿色提示 */
 .kv-expect{border-left:2px solid #3fb950;padding-left:10px;background:rgba(63,185,80,.07);border-radius:0 5px 5px 0}
 .kv-expect b{color:#56d364}
@@ -2063,20 +2068,32 @@ const DEFS = {
     name: 'Modbus 主站', kind: 'master', icon: 'ic-pc', model: 'RS485 / 以太网',
     ports: [{ n: 'A', t: 'rs485' }, { n: 'B', t: 'rs485' }, { n: 'ETH', t: 'eth' }],
     role: 'master',
-    cfg: { baud: 9600, parity: 'N', polls: [], vars: [] }, regs: {}, note: '双击打开控制台用 poll 命令轮询；在配置抽屉里定义变量映射'
+    cfg: { baud: 9600, parity: 'N', ip: '192.168.1.100', polls: [], vars: [] }, regs: {}, note: '双击打开控制台用 poll 命令轮询；在配置抽屉里定义变量映射'
   },
   plc: {
     name: '通用 PLC', kind: 'plc', icon: 'ic-plc', model: 'S7 / FX / 汇川 通用型',
     ports: [{ n: 'A', t: 'rs485' }, { n: 'B', t: 'rs485' }, { n: 'ETH', t: 'eth' }],
     role: 'slave',
-    cfg: { addr: 4, baud: 9600, parity: 'N', tcp: true, sample: 0, vars: [] },
+    cfg: { addr: 4, baud: 9600, parity: 'N', tcp: true, ip: '192.168.1.10', port: 502, sample: 0, vars: [] },
     regs: { 40001: 100, 40002: 200 }, coils: { 1: 0 }, note: '支持 RTU 从站 + Modbus TCP（502）'
+  },
+  serialSrv: {
+    name: '串口服务器', short: '串口服务器', kind: 'serialgw', icon: 'ic-serial',
+    model: 'RS485 ↔ 以太网 · RTU over TCP',
+    ports: [
+      { n: 'A', t: 'rs485' }, { n: 'B', t: 'rs485' },
+      { n: 'ETH', t: 'eth' }, { n: 'PWR', t: 'pin' }, { n: 'GND', t: 'gnd' }
+    ],
+    role: 'serialgw',
+    cfg: { ip: '192.168.1.50', port: 502, baud: 9600, parity: 'N' },
+    regs: {},
+    note: '把 RS485 上的 RTU 从站映射到 TCP：主站按 IP:端口 访问，设备内部自动 TCP↔RTU 转换'
   },
   gateway: {
     name: '边缘协议网关', kind: 'gateway', icon: 'ic-gw', model: 'RS485 ↔ 以太网',
     ports: [{ n: 'A', t: 'rs485' }, { n: 'B', t: 'rs485' }, { n: 'ETH', t: 'eth' }],
     role: 'both',
-    cfg: { addr: 1, baud: 9600, parity: 'N', tcp: true, forward: true, maps: [] },
+    cfg: { addr: 1, baud: 9600, parity: 'N', tcp: true, ip: '192.168.1.20', port: 502, forward: true, maps: [] },
     regs: {}, note: 'RS485↔以太网透传；M3 可用 map 配置 Modbus→MQTT 转换并并列看帧'
   },
   switch: {
@@ -2086,7 +2103,7 @@ const DEFS = {
   },
   broker: {
     name: 'MQTT Broker', kind: 'platform', icon: 'ic-server', model: 'EMQX / Mosquitto 风格',
-    ports: [{ n: 'ETH', t: 'eth' }], role: 'broker', cfg: {}, regs: {},
+    ports: [{ n: 'ETH', t: 'eth' }], role: 'broker', cfg: { ip: '192.168.1.30', port: 1883 }, regs: {},
     note: '消息中心：管理连接/订阅/Retain，并转发 PUBLISH 给匹配订阅者'
   },
   node: {
@@ -2326,7 +2343,7 @@ const PALETTE = [
   { g: '传感器', items: ['thermo', 'meter', 'tempTx', 'pressTx', 'levelTx', 'lightTx', 'co2Tx'] },
   { g: '开关量与执行', items: ['sw', 'lamp', 'di', 'dout', 'relay', 'ao', 'psu'] },
   { g: '采集与主控', items: ['ai', 'ai4', 'master', 'plc', 'node', 'gateway', 'opcClient', 'bacnetClient', 'coapNode'] },
-  { g: '通信与网络', items: ['switch', 'loraGw', 'nbiotBS', 'loraNode', 'nbiotNode'] },
+  { g: '通信与网络', items: ['switch', 'serialSrv', 'loraGw', 'nbiotBS', 'loraNode', 'nbiotNode'] },
   { g: '平台服务', items: ['broker', 'rule', 'opcServer', 'loraServer', 'coapServer', 'bacnetDev'] },
   { g: '应用展示', items: ['dash', 'hmi'] }
 ];
@@ -2599,6 +2616,27 @@ function logPkt(o) {
   if (S.packets.length > MAX_PKTS) S.packets.splice(0, S.packets.length - MAX_PKTS);
   return S.packets[S.packets.length - 1];
 }
+/* IP:端口 字符串：客户端用临时端口，服务端用配置端口 */
+function ipPort(dev, isClient) {
+  if (!dev || !dev.cfg || !dev.cfg.ip) return '';
+  const p = isClient ? (50000 + ((dev.id || '').replace(/\D/g, '') * 7 % 900)) : (dev.cfg.port || 502);
+  return dev.cfg.ip + ':' + p;
+}
+/* 串口服务器转发：把同一帧在 RS485 侧再记录一次 */
+function logSerialHop(srv, target, dir, frame, slave) {
+  const parsed = parseRTU(frame);
+  return logPkt({
+    dir, medium: 'rtu', src: dir === 'TX' ? srv.name : target.name,
+    srcId: dir === 'TX' ? srv.id : target.id,
+    dst: dir === 'TX' ? '从站 ' + slave : srv.name,
+    dstId: dir === 'TX' ? target.id : srv.id,
+    hex: hex(frame), fields: parsed.fields, ok: parsed.ok, desc: parsed.desc,
+    status: parsed.ok ? 'ok' : 'err',
+    note: dir === 'TX'
+      ? '串口服务器 ' + srv.name + ' 收到 TCP 请求，剥掉 MBAP 头，把 PDU 拼成 RTU 帧发到 RS485 总线'
+      : '从站 ' + target.name + ' 的 RTU 应答回到串口服务器，将被重新封装成 TCP 送回主站'
+  });
+}
 function registerSample(dev) {
   const v = dev.state.val;
   if (v == null || !isFinite(v)) return;
@@ -2636,10 +2674,28 @@ function issue(master, job, via) {
 function answer(master, medium, fr, job, reqPkt) {
   const port = medium === 'rtu' ? 'A' : 'ETH';
   const net = segment(master, port, medium === 'rtu' ? 'rs485' : 'eth');
-  let target = null;
+  let target = null, viaSrv = null;
   for (const d of net) {
     const role = DEFS[d.type].role;
     if ((role === 'slave' || role === 'both') && Number(d.cfg.addr) === Number(fr.slave)) { target = d; break; }
+  }
+  /* TCP 直连不到时，尝试经串口服务器转到它后面的 RS485 总线 */
+  if (!target && medium === 'tcp') {
+    const srv = net.find(d => DEFS[d.type].role === 'serialgw');
+    if (srv) {
+      const rtuSide = segment(srv, 'A', 'rs485');
+      const t2 = rtuSide.find(d => {
+        const r = DEFS[d.type].role;
+        return (r === 'slave' || r === 'both') && Number(d.cfg.addr) === Number(fr.slave);
+      });
+      if (t2) { target = t2; viaSrv = srv; }
+    }
+  }
+  /* TCP 报文补上源 / 目的 IP:端口，让 MBAP 之外的链路信息也能看见 */
+  if (medium === 'tcp' && reqPkt) {
+    reqPkt.srcAddr = ipPort(master, true);
+    reqPkt.dstAddr = viaSrv ? ipPort(viaSrv, false) : (target ? ipPort(target, false) : '');
+    reqPkt.viaSrv = viaSrv ? viaSrv.name : '';
   }
   if (!target) {
     logPkt({ dir: 'RX', medium, src: '—', srcId: '', dst: master.name, dstId: master.id,
@@ -2671,6 +2727,9 @@ function answer(master, medium, fr, job, reqPkt) {
     master.state.err++; return;
   }
 
+  /* 经串口服务器：先在 RS485 侧记一条转发帧，形成 TCP→RTU 的对照 */
+  if (viaSrv) logSerialHop(viaSrv, target, 'TX', fr.bytes, fr.slave);
+
   let resp, rxNote = '';
   if (fr.func === 3 || fr.func === 1) {
     const vals = [];
@@ -2700,9 +2759,17 @@ function answer(master, medium, fr, job, reqPkt) {
   if (!resp) return;
   let bytes = resp.bytes, parsed = parseRTU(resp.bytes);
   if (medium === 'tcp') { bytes = toTCP(resp, fr.slave, (S.nextId++ & 0xFFFF)); parsed = parseTCP(bytes); }
-  logPkt({ dir: 'RX', medium, src: target.name, srcId: target.id, dst: master.name, dstId: master.id,
+  if (viaSrv) logSerialHop(viaSrv, target, 'RX', resp.bytes, fr.slave);
+  logPkt({ dir: 'RX', medium, src: viaSrv ? viaSrv.name : target.name, srcId: viaSrv ? viaSrv.id : target.id,
+    dst: master.name, dstId: master.id,
     hex: hex(bytes), fields: parsed.fields, ok: parsed.ok, desc: parsed.desc,
-    status: 'ok', job: clone(job), note: rxNote || ('从站 ' + target.name + '：' + parsed.desc) });
+    srcAddr: medium === 'tcp' ? ipPort(viaSrv || target, false) : '',
+    dstAddr: medium === 'tcp' ? ipPort(master, true) : '',
+    viaSrv: viaSrv ? viaSrv.name : '',
+    status: 'ok', job: clone(job),
+    note: rxNote || (viaSrv
+      ? '经 ' + viaSrv.name + ' 转换：RS485 上的 RTU 应答被封装成 TCP 返回主站'
+      : ('从站 ' + target.name + '：' + parsed.desc)) });
   target.state.lastRx = S.sim.t; target.state.rx = (target.state.rx || 0) + 1; target.state.ok++;
   master.state.lastRx = S.sim.t; master.state.rx = (master.state.rx || 0) + 1;
   registerSample(target);
@@ -3227,6 +3294,13 @@ function devValue(d) {
       txt: nw + ' 个' + (isH ? '组态组件' : '看板组件')
     };
   }
+  if (def.role === 'serialgw') {
+    const used = segment(d, 'A', 'rs485').filter(x => ['slave', 'both'].includes(DEFS[x.type].role)).length;
+    return {
+      html: '<b>' + esc(d.cfg.ip || '—') + '</b><span class="u">:' + (d.cfg.port || 502) + ' · ' + used + ' 个从站</span>',
+      txt: (d.cfg.ip || '') + ':' + (d.cfg.port || 502)
+    };
+  }
   if (def.role === 'pass') {
     const n = Object.keys((d.state && d.state.topics) || {}).length;
     if (n) return { html: '<b>' + n + '</b><span class="u">订阅主题</span>', txt: n + ' 个订阅主题' };
@@ -3293,7 +3367,13 @@ function renderCard(d) {
   const def = DEFS[d.type];
   const val = devValue(d);
   const tag = def.role === 'master' ? '主站' : def.role === 'slave' ? '从站 ' + (d.cfg.addr || '-') :
-    def.role === 'both' ? '网关' : def.appKind === 'web' ? '看板' : def.appKind === 'hmi' ? '终端' : '';
+    def.role === 'both' ? '网关' : def.role === 'serialgw' ? '串口服务器' :
+    def.appKind === 'web' ? '看板' : def.appKind === 'hmi' ? '终端' : '';
+  /* 带以太网口的设备直接把 IP:端口 显示在型号行，比型号更有用 */
+  const hasEth = (def.ports || []).some(p => p.t === 'eth');
+  const mdTxt = (d.cfg && d.cfg.ip && hasEth)
+    ? d.cfg.ip + ':' + (d.cfg.port || 502)
+    : (def.name + ' · ' + def.model);
   const ports = def.ports || [];
   const rs = ports.filter(p => p.t === 'rs485');
   const groupRs = rs.length >= 2;
@@ -3308,13 +3388,14 @@ function renderCard(d) {
   el.className = 'card';
   el.dataset.id = d.id; el.dataset.kind = def.kind;
   const sg0 = d.state && d.state.signal;
-  el.title = d.name + ' · ' + def.name + '（设备 ID：' + d.id + '）' +
+  el.title = d.name + ' · ' + def.name + '（' + def.model + '）· 设备 ID：' + d.id +
+    (d.cfg && d.cfg.ip ? '\nIP：' + d.cfg.ip + (d.cfg.port ? ':' + d.cfg.port : '') : '') +
     (sg0 && sg0.ok === false && sg0.reason ? '\n⚠ ' + sg0.reason : '');
   el.style.left = d.x + 'px'; el.style.top = d.y + 'px'; el.style.width = cardWidth(d) + 'px';
   el.innerHTML =
     '<div class="head"><div style="min-width:0">' +
       '<div class="nm">' + esc(d.name) + '</div>' +
-      '<div class="md">' + esc(def.name) + ' · ' + esc(def.model) + '</div></div>' +
+      '<div class="md">' + esc(mdTxt) + '</div></div>' +
       (tag ? '<span class="tag">' + esc(tag) + '</span>' : '') +
       '<button class="gear" title="设备参数（配置抽屉）">⚙</button>' +
       '<button class="x" title="删除设备">×</button></div>' +
@@ -3800,6 +3881,7 @@ const ICONS = {
   'ic-dout': '<rect x="2" y="2.6" width="12" height="10.8" rx="1.5"/><path d="M9.4 8H6M6 8l1.4-1.4M6 8l1.4 1.4"/><path d="M3 5.6h4v4.8H3z"/>',
   'ic-switch': '<path d="M2.6 10.4h3.2M10.2 10.4h3.2"/><path d="M5.8 10.4 10.4 5.4"/><circle cx="4.6" cy="10.4" r="1.2"/><circle cx="11.4" cy="10.4" r="1.2"/><path d="M2.6 4.2h3.2M10.2 4.2h3.2"/>',
   'ic-lamp': '<circle cx="8" cy="6.6" r="3.4"/><path d="M5.8 10.6h4.4M6.6 12.8h2.8"/><path d="M8 1.2v1.2M2.8 6.6H1.6M14.4 6.6h-1.2M4.2 2.8 3.4 2M11.8 2.8l.8-.8"/>',
+  'ic-serial': '<rect x="1.8" y="4.6" width="12.4" height="6.8" rx="1.3"/><path d="M4 8h2.2M6.2 8l-1.2-1.2M6.2 8 5 9.2"/><path d="M11.8 8H9.6M9.6 8l1.2-1.2M9.6 8l1.2 1.2"/><path d="M4 3.2v1.4M12 3.2v1.4"/>',
   'ic-term': '<path d="m3.4 5 2.8 3-2.8 3M8.6 11h4"/>'
 };
 let openPalGroups = new Set();
@@ -4344,6 +4426,7 @@ function pktRow(p) {
     '<span class="pr ' + p.medium + '">' + mediumTag(p.medium) + '</span>' +
     '<span class="dir">' + arrow + '</span>' +
     '<span class="desc">' + esc(p.dir + ' ' + p.src + ' → ' + p.dst) +
+      (p.srcAddr || p.dstAddr ? ' <code class="ip">' + esc((p.srcAddr || '?') + ' → ' + (p.dstAddr || '?')) + '</code>' : '') +
       (raw ? ' <code class="hexline" title="原始十六进制">' + esc(raw) + '</code>' : '') +
       ' <small>' + esc(p.desc) + '</small></span>' +
     '<span class="st ' + p.status + '">' + (p.status === 'ok' ? '正常' : p.status === 'warn' ? '等待' : '错误') + '</span></div>';
@@ -4382,6 +4465,11 @@ function renderPktDetail() {
   const bs = p.hex && p.hex !== 'TIMEOUT' && p.hex !== '—' ? p.hex.split(' ') : [];
   let h = '<h4>概览</h4><div class="fld"><span class="fn">时间</span><span class="fv">' + clock(p.t) + '</span><span class="fd">' + esc(p.medium.toUpperCase()) + ' · ' + esc(p.dir) + '</span></div>' +
     '<div class="fld"><span class="fn">源 → 目的</span><span class="fv" style="grid-column:span 2">' + esc(p.src) + ' → ' + esc(p.dst) + '</span></div>' +
+    (p.srcAddr || p.dstAddr
+      ? '<div class="fld"><span class="fn">IP:端口</span><span class="fv" style="grid-column:span 2">' +
+        esc((p.srcAddr || '?') + ' → ' + (p.dstAddr || '?')) + '</span></div>' : '') +
+    (p.viaSrv
+      ? '<div class="fld"><span class="fn">中转设备</span><span class="fv" style="grid-column:span 2">' + esc(p.viaSrv) + '（TCP ↔ RTU 转换）</span></div>' : '') +
     '<h4>十六进制（点字节与字段联动）</h4><div class="hexline">';
   bs.forEach((b, i) => { h += '<span class="hexb' + (S.hlByte === i ? ' hl' : '') + '" data-i="' + i + '">' + esc(b) + '</span>'; });
   h += '</div><h4>字段解析</h4>';
@@ -4600,6 +4688,20 @@ function cfgSchema(d) {
     if (d.cfg.parity != null) f.push(sel('校验位', d.cfg, 'parity', [['N', '无校验 N'], ['E', '偶校验 E'], ['O', '奇校验 O']]));
     if (d.cfg.sample != null) f.push(num('采样周期 ms', d.cfg, 'sample', { min: 100, step: 100 }));
     if (f.length) G.push({ title: '串口 / 站址', fields: f });
+  }
+
+  /* 以太网参数：IP / 端口 / 单元 ID，Modbus TCP 靠这三样定位从站 */
+  if (d.cfg.ip != null) {
+    const isSlaveTcp = def.role === 'slave' || def.role === 'both' || def.role === 'serialgw';
+    const f = [
+      txt('IP 地址', d.cfg, 'ip', { help: '主站用这个地址访问；同网段内不能重复' })
+    ];
+    if (d.cfg.port != null) f.push(num('端口', d.cfg, 'port', { min: 1, max: 65535, help: 'Modbus TCP 默认 502' }));
+    if (isSlaveTcp) f.push(num('单元 ID', d.cfg, 'addr', { min: 1, max: 247, help: '等价于 RTU 的从站地址，TCP 帧里也要带' }));
+    G.push({ title: '以太网', fields: f,
+      help: isSlaveTcp
+        ? 'Modbus TCP 的定位方式 = IP:端口 + 单元 ID。主站按这三项发起请求，报文监视器里能看到完整地址。'
+        : '主站作为客户端，源端口由系统临时分配；目的地址就是从站的 IP:端口。' });
   }
 
   /* 传感器：量程、基准、幅度、周期 */
@@ -6934,6 +7036,27 @@ const LABS = [
     }
   },
   {
+    id: 'serial-gw', group: '③ 工业以太网', diff: 'mid', name: '串口服务器：RTU 从站上以太网',
+    goal: '现场仪表只有 RS485，监控系统却走以太网。用串口服务器把 RTU 从站映射成 TCP 从站，主站按 IP:端口 + 单元 ID 访问，理解两者如何一一对应。',
+    expect: '报文监视器出现 4 条帧：TX TCP（MBAP+PDU）→ TX RTU（去掉 MBAP、补上 CRC）→ RX RTU → RX TCP；报文详情能看到 192.168.1.50:502 与主站源端口。',
+    hint: [
+      '双击主站，控制台输入：poll 1 40001 1 every 1500 tcp（地址 1 是 RS485 上的温湿度传感器）。',
+      '报文监视器里会连着出现 4 条帧：注意 TCP 帧有 MBAP 头、RTU 帧有 CRC，中间的 PDU 完全一样。',
+      '双击串口服务器 show config，看它的 IP 192.168.1.50 与端口 502；这个 IP 就是主站要访问的目标地址。',
+      '把串口服务器与传感器之间的 A/B 线删掉再 poll —— TCP 侧会超时，说明它只做协议转换、不缓存数据。'
+    ],
+    build() {
+      S.devices = []; S.wires = []; S.notes = [];
+      const m = addDevice('master', 70, 80, { name: 'Master-01' });
+      const srv = addDevice('serialSrv', 360, 70, { name: 'SERIAL-01' });
+      const th = addDevice('thermo', 670, 80, { name: 'TH-01' });
+      wireUp(m, 'ETH', srv, 'ETH');
+      wireUp(srv, 'A', th, 'A'); wireUp(srv, 'B', th, 'B');
+      S.notes.push({ id: uid('n'), x: 70, y: 320, text: '主站走 TCP，现场只有 RS485 —— 中间靠串口服务器转换' });
+      S.activeDev = m.id;
+    }
+  },
+  {
     id: 'signal-4-20', group: '① 标准信号接入', diff: 'base', name: '4–20mA 两线制温度采集',
     goal: '用 24V 电源、温度变送器和通用 AI 模块搭出两线制电流回路，把温度变成 4–20mA，再由主站从 AI 模块寄存器 40001 读回。',
     expect: '变送器 show signal 显示 4–20mA 随温度变化；AI 模块 40001 与温度一致；主站 poll 5 能读回同一个值。',
@@ -7478,7 +7601,7 @@ function updateLabTag() {
 
 /* ---------------- 持久化 ---------------- */
 function projectText() {
-  const lines = ['@project NE_IOTSIM v1.4.2'];
+  const lines = ['@project NE_IOTSIM v1.4.3'];
   for (const d of S.devices) lines.push(['D', d.id, d.type, d.name, d.x, d.y,
     JSON.stringify(d.cfg), JSON.stringify(d.regs), JSON.stringify(d.coils)].join('|'));
   for (const w of S.wires) lines.push(['W', w.id, w.a.d, w.a.p, w.b.d, w.b.p].join('|'));
@@ -7486,7 +7609,7 @@ function projectText() {
   lines.push('@end');
   /* 运行态历史不写进工程：曲线是仿真实时生成的，写进去会让文件膨胀且重载后混入旧数据 */
   lines.push(JSON.stringify({
-    app: 'NE_IOTSIM', ver: '1.4.2', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
+    app: 'NE_IOTSIM', ver: '1.4.3', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
     lab: S.lab, labName: S.labName, view: S.view
   }, (k, v) => (k === 'hist' || k === 'history' || k === 'varHist' || k === 'varLast' ? undefined : v)));
   return lines.join('\n');
@@ -7568,6 +7691,10 @@ function showHelp() {
     '组件可拖动排序，改完可导出独立 HTML。双击「Web 看板」则是只读监控：布局固定、组件不可拖动、不提供导出，适合大屏展示。</p></div>' +
     '<div class="kv"><b>读数不对怎么查</b><p>选中设备按 <code>diag</code>（或控制台输入）会打印：接线是否完整、信号回路是否闭合、异常原因、寄存器与线圈当前值、轮询任务、最近一条报文。' +
     '常见原因：4–20mA 回路少了 AI- 回 GND、模块 PWR/GND 没接、主站轮询的从站地址与设备地址不一致、读了一个没有数据的寄存器地址。</p></div>' +
+    '<div class="kv"><b>Modbus TCP 的地址怎么定位</b><p>TCP 从站的定位是三样：<b>IP + 端口 + 单元 ID</b>。' +
+    '双击 PLC / 串口服务器，配置抽屉里有「以太网」组可改 IP 与端口（默认 502），单元 ID 就是原来的从站地址。' +
+    '卡片型号行直接显示 IP:端口；报文监视器里 TCP 帧会带绿色地址段（如 192.168.1.50:502 → 192.168.1.100:50035），RTU 帧不带。' +
+    '现场只有 RS485 仪表时，用「串口服务器」把 RTU 从站映射成 TCP：主站照常用 IP 访问，报文里会连着出现 TCP→RTU→RTU→TCP 四段帧。</p></div>' +
     '<div class="kv"><b>开关量测试</b><p>「开关量测试」分类里有四个设备：<b>手动开关</b>（干接点 NO/COM）、<b>开关量采集模块</b>（4×DI）、' +
     '<b>开关量输出模块</b>（4×DO）、<b>指示灯</b>。典型接线：开关 NO → DI1、开关 COM → DI 的 COM；' +
     'DO1 → 指示灯 IN、DO COM → 灯 COM。点开关卡片上的「闭合 / 断开」切换通断，DI 状态会同步写入寄存器 40001–40004 与线圈 1–4，' +
@@ -7598,7 +7725,7 @@ function showAbout() {
   openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
     '<h2>关于</h2><button class="btn" id="modalClose">关闭</button></div><div class="mb about">' +
     '<svg class="about-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
-    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.4.2 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
+    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.4.3 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
     '<p>单文件、零安装、完全离线的物联网教学仿真器。独立项目，不与其他沙盘互通，也不联网、不采集真实数据。</p>' +
     '<p>当前版本：Modbus RTU/TCP、MQTT 3.1.1、OPC UA、LoRaWAN、NB-IoT 链路、CoAP、BACnet/IP、Modbus→MQTT 网关转换、十六进制报文手工注入；标准信号与模拟量输出、规则引擎、可视化页面编辑与独立 HTML 导出；23 个实验。</p>' +
     '<p class="hint">教学模拟器，不是真实协议栈。不联网、不采集数据。Copyright © 2026 新易科技工作室 NewE · MIT License</p>' +
@@ -7750,7 +7877,7 @@ function init() {
   syncClock(); bindUI(); termOpen(false);
   if (!restored) setTimeout(() => {
     openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
-      '<h2>新易物联网沙盘 v1.4.2</h2><button class="btn" id="modalClose">开始</button></div><div class="mb">' +
+      '<h2>新易物联网沙盘 v1.4.3</h2><button class="btn" id="modalClose">开始</button></div><div class="mb">' +
       '<p>已为你加载「Modbus RTU 读温湿度」实验拓扑。三步走：</p><ol>' +
       '<li>点顶栏「运行」启动仿真时钟；</li>' +
       '<li>双击画布上的 <b>Master-01</b>，输入 <code>poll 1 40001 2</code>；</li>' +
