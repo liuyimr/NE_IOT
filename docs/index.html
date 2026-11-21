@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   NE_IOTSIM —— 新易物联网沙盘（单文件离线版）
-  版本：v1.4 (开关量与交互修正版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
+  版本：v1.4.1 (读数诊断与轮询管理修正版 · CoAP + BACnet + NB-IoT + 移动端打磨 + 文档)
   Copyright (c) 2026 新易科技工作室 NewE
   作者：Liuyi  <yimr@sohu.com>
   协议：MIT License
@@ -1729,6 +1729,27 @@ html[data-theme="light"] .cfg-reg-write input{background:#f6f8fa}
 .cfg-do-row{cursor:pointer}
 .cfg-do-row em{font-style:normal;margin-left:auto;color:var(--tx3);font-size:10px}
 .cfg-do-row input{width:14px;height:14px;accent-color:#2f81f7}
+/* 报文列表里的原始十六进制 */
+.pkt .hexline{
+  font:10px var(--mono);color:var(--cy);background:rgba(47,129,247,.1);
+  padding:0 4px;border-radius:3px;letter-spacing:.3px;white-space:nowrap;
+}
+.pkt.sel .hexline{background:rgba(47,129,247,.2)}
+/* 主站轮询任务行 */
+.cfg-poll{display:flex;flex-direction:column;gap:5px}
+.cfg-poll-row{
+  display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:5px;
+  background:var(--bg3);font-size:11px;color:var(--tx2);
+}
+.cfg-poll-row .pi{color:var(--cy);font-family:var(--mono);flex:0 0 auto}
+.cfg-poll-row .pv{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cfg-poll-row .btn{padding:2px 7px;font-size:10px}
+/* 读数条告警 */
+.mini-v.bad{color:#f85149}
+.mini-alarm{
+  grid-column:1 / -1;font-size:10px;color:#f85149;line-height:1.4;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
 html[data-theme="light"] .cfg-group{background:#fff}
 html[data-theme="light"] .cfg-f input,
 html[data-theme="light"] .cfg-f select,
@@ -2299,13 +2320,10 @@ function needsConsole(d) {
 }
 
 const PALETTE = [
-  { g: '感知层', items: ['thermo', 'meter', 'tempTx', 'pressTx', 'levelTx', 'lightTx', 'co2Tx', 'coapNode'] },
-  { g: '感知层 · LPWAN', items: ['loraNode', 'nbiotNode'] },
-  { g: '执行层', items: ['relay', 'ao'] },
-  { g: '开关量测试', items: ['sw', 'lamp', 'di', 'dout'] },
-  { g: '采集与控制', items: ['ai', 'ai4', 'node', 'master', 'opcClient', 'bacnetClient', 'plc', 'gateway'] },
-  { g: '辅助设备', items: ['psu'] },
-  { g: '网络接入', items: ['switch', 'loraGw', 'nbiotBS'] },
+  { g: '传感器', items: ['thermo', 'meter', 'tempTx', 'pressTx', 'levelTx', 'lightTx', 'co2Tx'] },
+  { g: '开关量与执行', items: ['sw', 'lamp', 'di', 'dout', 'relay', 'ao', 'psu'] },
+  { g: '采集与主控', items: ['ai', 'ai4', 'master', 'plc', 'node', 'gateway', 'opcClient', 'bacnetClient', 'coapNode'] },
+  { g: '通信与网络', items: ['switch', 'loraGw', 'nbiotBS', 'loraNode', 'nbiotNode'] },
   { g: '平台服务', items: ['broker', 'rule', 'opcServer', 'loraServer', 'coapServer', 'bacnetDev'] },
   { g: '应用展示', items: ['dash', 'hmi'] }
 ];
@@ -2643,7 +2661,7 @@ function answer(master, medium, fr, job, reqPkt) {
     master.state.err++; return;
   }
 
-  let resp;
+  let resp, rxNote = '';
   if (fr.func === 3 || fr.func === 1) {
     const vals = [];
     for (let i = 0; i < fr.qty; i++) {
@@ -2652,6 +2670,15 @@ function answer(master, medium, fr, job, reqPkt) {
     }
     resp = rtuResp(fr.slave, fr.func, vals);
     target.state.val = vals.length ? vals[0] : null;
+    /* 读到 0 且该通道信号异常时，把原因写进报文，避免误以为是通信问题 */
+    if (fr.func === 3) {
+      const badCh = (target.state.ch || []).findIndex((c, i) =>
+        i >= fr.start && i < fr.start + fr.qty && c && c.ok === false && (c.val == null || vals[i - fr.start] === 0));
+      if (badCh >= 0) {
+        const c = target.state.ch[badCh];
+        rxNote = '通道 #' + (badCh + 1) + ' 信号异常（' + (c.reason || '回路未闭合') + '），寄存器因此为 0。先修接线。';
+      }
+    }
   } else if (fr.func === 6) {
     target.regs[fr.reg + 40001] = fr.val & 0xFFFF;
     resp = writeResp(fr.slave, fr.pdu);
@@ -2665,7 +2692,7 @@ function answer(master, medium, fr, job, reqPkt) {
   if (medium === 'tcp') { bytes = toTCP(resp, fr.slave, (S.nextId++ & 0xFFFF)); parsed = parseTCP(bytes); }
   logPkt({ dir: 'RX', medium, src: target.name, srcId: target.id, dst: master.name, dstId: master.id,
     hex: hex(bytes), fields: parsed.fields, ok: parsed.ok, desc: parsed.desc,
-    status: 'ok', job: clone(job), note: '从站 ' + target.name + '：' + parsed.desc });
+    status: 'ok', job: clone(job), note: rxNote || ('从站 ' + target.name + '：' + parsed.desc) });
   target.state.lastRx = S.sim.t; target.state.rx = (target.state.rx || 0) + 1; target.state.ok++;
   master.state.lastRx = S.sim.t; master.state.rx = (master.state.rx || 0) + 1;
   registerSample(target);
@@ -3217,7 +3244,9 @@ function renderCard(d) {
   const el = document.createElement('div');
   el.className = 'card';
   el.dataset.id = d.id; el.dataset.kind = def.kind;
-  el.title = d.name + ' · ' + def.name + '（设备 ID：' + d.id + '）';
+  const sg0 = d.state && d.state.signal;
+  el.title = d.name + ' · ' + def.name + '（设备 ID：' + d.id + '）' +
+    (sg0 && sg0.ok === false && sg0.reason ? '\n⚠ ' + sg0.reason : '');
   el.style.left = d.x + 'px'; el.style.top = d.y + 'px'; el.style.width = cardWidth(d) + 'px';
   el.innerHTML =
     '<div class="head"><div style="min-width:0">' +
@@ -3859,6 +3888,7 @@ const CMDS = [
   { c: 'set addr <地址>', u: '从站地址', need: d => d.cfg.addr != null },
   { c: 'set sample <ms>', u: '采样周期', need: d => d.cfg.sample != null },
   { c: 'reg <地址>=<值>', u: '写寄存器，如 reg 40001=264' },
+  { c: 'diag', u: '一键诊断：接线 / 信号 / 寄存器 / 轮询' },
   { c: 'config', u: '打开本设备参数抽屉' },
   { c: 'inject <协议> <十六进制…>', u: '手工注入一帧', need: d => d.type === 'master' },
   { c: 'poll <从站> <起始> <数量> [every <ms>]', u: '主站添加轮询任务', need: d => DEFS[d.type].role === 'master' },
@@ -4034,6 +4064,62 @@ function runCmd(line) {
     d.cfg.fault = f; updateAnalogChannels(false); refreshCardsSoft(); drawWires(); save();
     termPrint('故障状态设为 ' + f + '；用 show signal 查看结果', 'warn'); return;
   }
+  if (cmd === 'diag') {
+    if (!d) return termPrint('请先选中设备。', 'err');
+    const def = DEFS[d.type];
+    let n = 0; const no = () => ' ①②③④⑤⑥⑦'[++n] + ' ';
+    const SIG_PORT = { ain: 1, iout: 1, vout: 1, aout: 1, dry: 1, di: 1 };
+    termPrint('【' + d.name + '】诊断（' + def.name + '）', 'hl');
+    /* 1. 接线 */
+    termPrint(no() + '接线', 'dim');
+    let openSig = 0;
+    (def.ports || []).forEach(p => {
+      const oe = otherEnd(d.id, p.n);
+      const isSig = !!SIG_PORT[p.t];
+      if (!oe && isSig) openSig++;
+      const nd = oe ? byId(oe.d) : null;
+      termPrint('   ' + (oe ? '●' : '○') + ' ' + String(p.n).padEnd(7) +
+        (oe ? '→ ' + (nd ? nd.name : '?') + ' · ' + oe.p : '未接线'), oe ? 'ok' : (isSig ? 'err' : 'dim'));
+    });
+    /* 2. 信号回路 */
+    const sg = d.state.signal;
+    if (sg) {
+      termPrint(no() + '信号回路', 'dim');
+      termPrint('   ' + sg.mode + ' 输出 ' + Number(sg.value).toFixed(2) + sg.unit + '　' +
+        (sg.ok ? '正常' : '异常'), sg.ok ? 'ok' : 'err');
+      if (!sg.ok && sg.reason) termPrint('   原因：' + sg.reason, 'err');
+    }
+    /* 3. 通道 */
+    if (def.kind === 'io' || def.kind === 'di' || def.kind === 'dout') {
+      termPrint(no() + '通道', 'dim');
+      (d.state.ch || []).forEach((c, i) => {
+        if (!c) return termPrint('   #' + (i + 1) + ' 未接传感器', 'dim');
+        const t = c.val != null ? c.val.toFixed(c.digits || 0) + (c.unit || '') : (c.on == null ? '未接线' : (c.on ? 'ON' : 'OFF'));
+        termPrint('   #' + (i + 1) + ' ' + (c.name ? String(c.name).padEnd(10) : '') + t + '　' +
+          (c.ok === false ? '异常：' + (c.reason || '') : '正常'), c.ok === false ? 'err' : 'ok');
+      });
+    }
+    /* 4. 寄存器 */
+    termPrint(no() + '寄存器 / 线圈', 'dim');
+    termPrint('   ' + (typeof regSnapshot === 'function' ? regSnapshot(d) : '—'), 'dim');
+    /* 5. 轮询（主站） */
+    if (def.role === 'master') {
+      const polls = d.cfg.polls || [];
+      termPrint(no() + '轮询任务：' + polls.length + ' 条' + (polls.length ? '（多条同时生效）' : ''), 'dim');
+      polls.forEach((p, i) => termPrint('   #' + (i + 1) + ' 从站 ' + p.slave + ' · 寄存器 400' +
+        String(Number(p.start) + 1).padStart(2, '0') + ' ×' + (p.qty || 1) + ' · ' + (p.every || 1500) + 'ms', 'dim'));
+      if (polls.length) termPrint('   删除：poll del <序号>，或配置抽屉里点「删除」；清空：poll clear', 'dim');
+    }
+    /* 最近一条报文 */
+    const last = (S.packets || []).slice().reverse().find(x => x.srcId === d.id || x.dstId === d.id);
+    if (last) {
+      termPrint(no() + '最近报文', 'dim');
+      termPrint('   ' + last.dir + ' ' + last.src + ' → ' + last.dst + '　' + (last.hex || ''), 'dim');
+      termPrint('   ' + last.desc, last.status === 'err' ? 'err' : 'dim');
+    }
+    if (openSig) termPrint(' 提示：标 ○ 的信号端子没有接线；4–20mA / 0–10V 回路必须完整闭合才能读到数值。', 'warn');
+    return;
+  }
   if (cmd === 'page') { openPageEditor(); return; }
 
   if (cmd === 'show' && a[1] === 'config') {
@@ -4191,11 +4277,14 @@ function mediumTag(m) {
 function pktRow(p) {
   const rel = S.activeDev && (p.srcId === S.activeDev || p.dstId === S.activeDev);
   const arrow = p.dir === 'RX' ? '↙' : p.dir === 'TX' ? '↗' : '•';
+  const raw = p.hex && p.hex !== '—' ? p.hex : '';
   return '<div class="pkt' + (S.activePkt === p.id ? ' sel' : '') + (rel ? ' rel' : '') + '" data-id="' + p.id + '">' +
     '<span class="tm">' + clock(p.t) + '</span>' +
     '<span class="pr ' + p.medium + '">' + mediumTag(p.medium) + '</span>' +
     '<span class="dir">' + arrow + '</span>' +
-    '<span class="desc">' + esc(p.dir + ' ' + p.src + ' → ' + p.dst) + ' <small>' + esc(p.desc) + '</small></span>' +
+    '<span class="desc">' + esc(p.dir + ' ' + p.src + ' → ' + p.dst) +
+      (raw ? ' <code class="hexline" title="原始十六进制">' + esc(raw) + '</code>' : '') +
+      ' <small>' + esc(p.desc) + '</small></span>' +
     '<span class="st ' + p.status + '">' + (p.status === 'ok' ? '正常' : p.status === 'warn' ? '等待' : '错误') + '</span></div>';
 }
 function renderPackets() {
@@ -4352,11 +4441,13 @@ function openConfig(d) {
   el.classList.add('open'); el.classList.remove('min');
   el.setAttribute('aria-hidden', 'false');
   renderConfig();
+  startCfgTimer(d);
   if (typeof renderAll === 'function') renderAll();
 }
 function closeConfig() {
   const el = document.getElementById('cfgDrawer'); if (!el) return;
   el.classList.remove('open'); el.setAttribute('aria-hidden', 'true');
+  stopCfgTimer();
   if (cfgRestoreTerm && typeof termOpen === 'function') { termOpen(true); cfgRestoreTerm = null; }
 }
 function toggleCfgMin() {
@@ -4369,9 +4460,33 @@ function renderCfgMini(d) {
   const v = typeof devValue === 'function' ? devValue(d) : { txt: '' };
   const st = d.state || {};
   const last = (S.packets || []).slice().reverse().find(p => p.srcId === d.id || p.dstId === d.id);
-  el.innerHTML = '<span class="mini-l">当前值</span><span class="mini-v">' + esc(v.txt || '—') + '</span>' +
-    '<span class="mini-l">TX ' + (st.ok || 0) + ' / ERR ' + (st.err || 0) + '</span>' +
+  const sig = st.signal || {};
+  const bad = sig.ok === false;
+  el.innerHTML = '<span class="mini-l">当前值</span><span class="mini-v' + (bad ? ' bad' : '') + '">' + esc(v.txt || '—') + '</span>' +
+    (bad && sig.reason ? '<span class="mini-alarm">' + esc(sig.reason) + '</span>' : '') +
+    '<span class="mini-l">TX ' + (st.tx || 0) + ' / RX ' + (st.rx || 0) + ' / ERR ' + (st.err || 0) + '</span>' +
     '<span class="mini-s">' + (last ? esc(last.desc.slice(0, 30)) : '暂无报文') + '</span>';
+}
+/* 抽屉打开期间定时刷新读数与寄存器快照：只改文本，不重建表单（重建会打断输入） */
+let cfgTimer = 0;
+function stopCfgTimer() { if (cfgTimer) { clearInterval(cfgTimer); cfgTimer = 0; } }
+function startCfgTimer(d) {
+  stopCfgTimer();
+  cfgTimer = setInterval(() => {
+    const el = document.getElementById('cfgDrawer');
+    if (!el || !el.classList.contains('open') || !byId(d.id)) { stopCfgTimer(); return; }
+    renderCfgMini(d);
+    const now = document.getElementById('cfgRegNow');
+    if (now) now.textContent = regSnapshot(d);
+  }, 600);
+}
+function regSnapshot(d) {
+  const ks = Object.keys(d.regs || {}), cs = Object.keys(d.coils || {});
+  const r = ks.length
+    ? ks.sort((a, b) => Number(a) - Number(b)).map(k => k + ' = ' + d.regs[k]).join('　') : '（无）';
+  const c = cs.length
+    ? cs.sort((a, b) => Number(a) - Number(b)).map(k => k + ' = ' + d.coils[k]).join('　') : '';
+  return '寄存器：' + r + (c ? '｜线圈：' + c : '');
 }
 const BAUDS = [1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200];
 function cfgField(f) {
@@ -4601,6 +4716,31 @@ function cfgSchema(d) {
       '<p class="cfg-help">勾选即写线圈 1–4；DO 端子接指示灯 IN 或采集模块 DI，可做输出回路测试。</p>' });
   }
 
+  /* 主站轮询任务：多条会同时生效，这里可视化增删，不用记住序号 */
+  if (def.role === 'master') {
+    const polls = d.cfg.polls || [];
+    const rows = polls.length
+      ? polls.map((p, i) => '<div class="cfg-poll-row">' +
+          '<span class="pi">#' + (i + 1) + '</span>' +
+          '<span class="pv">从站 ' + esc(p.slave) + ' · 400' + String(Number(p.start) + 1).padStart(2, '0') +
+          ' ×' + (p.qty || 1) + ' · 每 ' + (p.every || 1500) + 'ms · ' + (p.via === 'tcp' ? 'TCP' : 'RTU') + '</span>' +
+          '<button class="btn sm" data-pollrun="' + i + '">读一次</button>' +
+          '<button class="btn sm danger" data-polldel="' + i + '">删除</button>' +
+          '</div>').join('')
+      : '<p class="cfg-help">还没有轮询任务。在控制台输入 <code>poll 1 40001 2</code>，或点下面「添加轮询」。</p>';
+    G.push({ title: '轮询任务（多条同时生效）',
+      html: '<div class="cfg-poll">' + rows + '</div>' +
+        '<div class="cfg-reg-write" style="margin-top:8px">' +
+        '<input id="pollSlave" placeholder="从站 1" inputmode="numeric" />' +
+        '<input id="pollStart" placeholder="起始 40001" inputmode="numeric" />' +
+        '<input id="pollQty" placeholder="数量 1" inputmode="numeric" />' +
+        '<input id="pollEvery" placeholder="周期 ms 1500" inputmode="numeric" />' +
+        '<button class="btn sm" id="pollAdd">添加轮询</button>' +
+        (polls.length ? '<button class="btn sm danger" id="pollClearAll">全部清空</button>' : '') +
+        '</div>',
+      help: '每条任务按自己的周期独立执行，主站会轮流发出对应请求帧。删除后立即停止。' });
+  }
+
   /* 页面 */
   if (d.type === 'dash' || d.type === 'hmi') {
     const isH = def.appKind === 'hmi';
@@ -4615,9 +4755,6 @@ function cfgSchema(d) {
   /* 寄存器 / 线圈：从站设备用鼠标直接读写，等价于控制台的 show regs / reg 命令 */
   const regKeys = Object.keys(d.regs || {}), coilKeys = Object.keys(d.coils || {});
   if (def.role === 'slave' || def.role === 'both' || d.type === 'plc' || regKeys.length || coilKeys.length) {
-    const regTxt = regKeys.length
-      ? regKeys.sort((a, b) => Number(a) - Number(b)).map(k => k + ' = ' + d.regs[k]).join('　')
-      : '（无）';
     G.push({
       title: '寄存器 / 线圈（直接读写，等价于控制台）',
       html: '<div class="cfg-reg-write">' +
@@ -4628,9 +4765,7 @@ function cfgSchema(d) {
         '<button class="btn sm" id="cfgCoilOn">线圈 ON</button>' +
         '<button class="btn sm" id="cfgCoilOff">线圈 OFF</button>' +
         '</div>' +
-        '<p class="cfg-help">当前寄存器：' + esc(regTxt) +
-        (coilKeys.length ? '<br />当前线圈：' + esc(coilKeys.sort((a, b) => Number(a) - Number(b)).map(k => k + ' = ' + d.coils[k]).join('　')) : '') +
-        '</p>'
+        '<p class="cfg-help" id="cfgRegNow">' + esc(regSnapshot(d)) + '</p>'
     });
   }
 
@@ -4672,6 +4807,7 @@ function renderConfig() {
     (g.html || '') + (g.help ? '<p class="cfg-help">' + esc(g.help) + '</p>' : '') + '</section>'
   ).join('') + '<p class="cfg-help">参数改动立即生效并写入工程；控制台命令与这里双向同步。</p>';
   body.scrollTop = cfgScroll;
+  if (cfgDrawerOpen()) startCfgTimer(d);
   bindCfgEvents(d);
   bindCfgRegs(d);
 }
@@ -4714,6 +4850,42 @@ function bindCfgRegs(d) {
       toast('DO' + ch + ' ' + (el.checked ? '输出 ON' : '输出 OFF'));
     };
   });
+  /* 主站轮询：增删改立即生效 */
+  const pollAdd = document.getElementById('pollAdd');
+  if (pollAdd) pollAdd.onclick = () => {
+    const slave = Number((document.getElementById('pollSlave') || {}).value);
+    const startRaw = Number((document.getElementById('pollStart') || {}).value) || 40001;
+    const qty = Number((document.getElementById('pollQty') || {}).value) || 1;
+    const every = Number((document.getElementById('pollEvery') || {}).value) || 1500;
+    if (!Number.isFinite(slave) || slave < 1 || slave > 247) return toast('从站地址应为 1–247');
+    d.cfg.polls = d.cfg.polls || [];
+    d.cfg.polls.push({
+      slave, start: startRaw >= 40001 ? startRaw - 40001 : startRaw,
+      qty: Math.max(1, Math.min(125, qty)), func: 3,
+      every: Math.max(200, every), via: 'rtu'
+    });
+    if (typeof S !== 'undefined' && S.sim && !S.sim.running) { S.sim.running = true; if (typeof syncClock === 'function') syncClock(); }
+    applyCfgChange(d); renderConfig(); toast('已添加轮询：从站 ' + slave);
+  };
+  document.querySelectorAll('[data-polldel]').forEach(btn => {
+    btn.onclick = () => {
+      const i = Number(btn.dataset.polldel);
+      d.cfg.polls.splice(i, 1);
+      applyCfgChange(d); renderConfig(); toast('已删除第 ' + (i + 1) + ' 条轮询');
+    };
+  });
+  document.querySelectorAll('[data-pollrun]').forEach(btn => {
+    btn.onclick = () => {
+      const p = (d.cfg.polls || [])[Number(btn.dataset.pollrun)];
+      if (!p || typeof issue !== 'function') return;
+      issue(d, Object.assign({}, p, { last: 0 }), p.via === 'tcp' ? 'tcp' : 'rtu');
+      if (typeof openWorkbench === 'function') openWorkbench('packets');
+    };
+  });
+  const pollClear = document.getElementById('pollClearAll');
+  if (pollClear) pollClear.onclick = () => {
+    d.cfg.polls = []; applyCfgChange(d); renderConfig(); toast('轮询已全部清空');
+  };
 }
 function bindCfgEvents(d) {
   const body = document.getElementById('cfgBody');
@@ -7218,7 +7390,7 @@ function updateLabTag() {
 
 /* ---------------- 持久化 ---------------- */
 function projectText() {
-  const lines = ['@project NE_IOTSIM v1.4'];
+  const lines = ['@project NE_IOTSIM v1.4.1'];
   for (const d of S.devices) lines.push(['D', d.id, d.type, d.name, d.x, d.y,
     JSON.stringify(d.cfg), JSON.stringify(d.regs), JSON.stringify(d.coils)].join('|'));
   for (const w of S.wires) lines.push(['W', w.id, w.a.d, w.a.p, w.b.d, w.b.p].join('|'));
@@ -7226,7 +7398,7 @@ function projectText() {
   lines.push('@end');
   /* 运行态历史不写进工程：曲线是仿真实时生成的，写进去会让文件膨胀且重载后混入旧数据 */
   lines.push(JSON.stringify({
-    app: 'NE_IOTSIM', ver: '1.4.0', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
+    app: 'NE_IOTSIM', ver: '1.4.1', independent: true, devices: S.devices, wires: S.wires, notes: S.notes,
     lab: S.lab, labName: S.labName, view: S.view
   }, (k, v) => (k === 'hist' || k === 'history' || k === 'varHist' || k === 'varLast' ? undefined : v)));
   return lines.join('\n');
@@ -7288,7 +7460,7 @@ function showHelp() {
     '<li>左侧设备库先点<b>分类名</b>展开，再点设备加入画布；搜索框可按名称/型号过滤；再点分类名收起。手机上分类左右排列，展开后横向滑动选择。</li>' +
     '<li>双击设备打开右侧「配置抽屉」；只有需要发指令的设备（主站 / 协议端 / 平台）才会同时在工作台开控制台页签。</li>' +
     '<li>在控制台输入 <code>help</code> 只列出当前设备支持的命令；<code>poll 1 40001 2</code> 发起轮询。</li>' +
-    '<li>切到「报文监视器」看逐字节解析，切到「数据看板」看实时曲线。</li></ol></div>' +
+    '<li>切到「报文监视器」看逐字节解析与原始十六进制，切到「数据看板」看实时曲线。</li></ol></div>' +
     '<div class="kv"><b>端口与颜色</b><p>RS485 已合并成一个「485」端口，框内 A / B 两个小框分别接线；ETH 是以太网口。' +
     '<span style="color:#f85149">红＝+24V</span>、灰＝GND、' +
     '<span style="color:#e3b341">黄褐＝4–20mA</span>、<span style="color:#79b8ff">蓝＝0–10V</span>、黄＝RS485、绿＝以太网。' +
@@ -7306,6 +7478,8 @@ function showHelp() {
     '例如 <code>炉温 / TH-01 / 40001 / 0.1 / 0~60</code>。仿真跑起来后，这些变量会出现在数据看板与页面编辑器的数据源里。' +
     '双击「可视化终端」打开组态编辑：左侧「设备与变量」按设备列出全部可绑定变量，点一下就加入画面，再给组件绑定；' +
     '组件可拖动排序，改完可导出独立 HTML。双击「Web 看板」则是只读监控：布局固定、组件不可拖动、不提供导出，适合大屏展示。</p></div>' +
+    '<div class="kv"><b>读数不对怎么查</b><p>选中设备按 <code>diag</code>（或控制台输入）会打印：接线是否完整、信号回路是否闭合、异常原因、寄存器与线圈当前值、轮询任务、最近一条报文。' +
+    '常见原因：4–20mA 回路少了 AI- 回 GND、模块 PWR/GND 没接、主站轮询的从站地址与设备地址不一致、读了一个没有数据的寄存器地址。</p></div>' +
     '<div class="kv"><b>开关量测试</b><p>「开关量测试」分类里有四个设备：<b>手动开关</b>（干接点 NO/COM）、<b>开关量采集模块</b>（4×DI）、' +
     '<b>开关量输出模块</b>（4×DO）、<b>指示灯</b>。典型接线：开关 NO → DI1、开关 COM → DI 的 COM；' +
     'DO1 → 指示灯 IN、DO COM → 灯 COM。点开关卡片上的「闭合 / 断开」切换通断，DI 状态会同步写入寄存器 40001–40004 与线圈 1–4，' +
@@ -7336,7 +7510,7 @@ function showAbout() {
   openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
     '<h2>关于</h2><button class="btn" id="modalClose">关闭</button></div><div class="mb about">' +
     '<svg class="about-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
-    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.4 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
+    '<div class="about-name">新易物联网沙盘</div><div class="about-ver">v1.4.1 · 独立项目（发布版 · Modbus / MQTT / OPC UA / LoRa / NB-IoT / CoAP / BACnet）</div>' +
     '<p>单文件、零安装、完全离线的物联网教学仿真器。独立项目，不与其他沙盘互通，也不联网、不采集真实数据。</p>' +
     '<p>当前版本：Modbus RTU/TCP、MQTT 3.1.1、OPC UA、LoRaWAN、NB-IoT 链路、CoAP、BACnet/IP、Modbus→MQTT 网关转换、十六进制报文手工注入；标准信号与模拟量输出、规则引擎、可视化页面编辑与独立 HTML 导出；23 个实验。</p>' +
     '<p class="hint">教学模拟器，不是真实协议栈。不联网、不采集数据。Copyright © 2026 新易科技工作室 NewE · MIT License</p>' +
@@ -7488,7 +7662,7 @@ function init() {
   syncClock(); bindUI(); termOpen(false);
   if (!restored) setTimeout(() => {
     openModal('<div class="mh"><svg class="mh-logo" viewBox="0 0 820 232"><use href="#neweLogo"/></svg>' +
-      '<h2>新易物联网沙盘 v1.4</h2><button class="btn" id="modalClose">开始</button></div><div class="mb">' +
+      '<h2>新易物联网沙盘 v1.4.1</h2><button class="btn" id="modalClose">开始</button></div><div class="mb">' +
       '<p>已为你加载「Modbus RTU 读温湿度」实验拓扑。三步走：</p><ol>' +
       '<li>点顶栏「运行」启动仿真时钟；</li>' +
       '<li>双击画布上的 <b>Master-01</b>，输入 <code>poll 1 40001 2</code>；</li>' +
